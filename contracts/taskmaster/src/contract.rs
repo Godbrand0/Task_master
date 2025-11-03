@@ -47,6 +47,11 @@ const USER_TASKS: Symbol = symbol_short!("USR_TSKS");
 const ASSIGNED_TASKS: Symbol = symbol_short!("ASG_TSKS");
 const TASK_COUNTER: Symbol = symbol_short!("TSK_CNTR");
 const TOKEN: Symbol = symbol_short!("TOKEN");
+const DEPLOYER: Symbol = symbol_short!("DEPLOYER");
+const PLATFORM_FEES: Symbol = symbol_short!("PLT_FEES");
+
+// Platform fee percentage (3% = 3/100)
+const PLATFORM_FEE_PERCENTAGE: u32 = 3;
 
 // Contract implementation
 #[contract]
@@ -58,7 +63,8 @@ impl TaskMaster {
     ///
     /// # Arguments
     /// * `token` - Address of the token contract for payments
-    pub fn initialize(env: Env, token: Address) {
+    /// * `deployer` - Address of the contract deployer who will receive platform fees
+    pub fn initialize(env: Env, token: Address, deployer: Address) {
         // Check if already initialized
         if env.storage().instance().has(&TASK_COUNTER) {
             panic!("Contract already initialized");
@@ -69,6 +75,12 @@ impl TaskMaster {
         
         // Store token address
         env.storage().instance().set(&TOKEN, &token);
+        
+        // Store deployer address
+        env.storage().instance().set(&DEPLOYER, &deployer);
+        
+        // Initialize platform fees accumulator to 0
+        env.storage().instance().set(&PLATFORM_FEES, &0i128);
     }
 
     /// Create a new task with funding
@@ -284,6 +296,19 @@ impl TaskMaster {
             .clone()
             .expect("Task must have an assignee");
 
+        // Calculate platform fee (3% of funding amount)
+        let platform_fee = task.funding_amount * PLATFORM_FEE_PERCENTAGE as i128 / 100i128;
+        let assignee_amount = task.funding_amount - platform_fee;
+
+        // Update platform fees accumulator
+        let mut accumulated_fees: i128 = env
+            .storage()
+            .instance()
+            .get(&PLATFORM_FEES)
+            .unwrap_or(0i128);
+        accumulated_fees += platform_fee;
+        env.storage().instance().set(&PLATFORM_FEES, &accumulated_fees);
+
         // Update task status
         task.status = TaskStatus::FundsReleased;
         task.creator_approved = true;
@@ -292,17 +317,19 @@ impl TaskMaster {
         tasks.set(task_id, task.clone());
         env.storage().instance().set(&TASKS, &tasks);
 
-        // Transfer funds from contract to assignee
+        // Get token client
         let token_address: Address = env
             .storage()
             .instance()
             .get(&TOKEN)
             .expect("Token not initialized");
         let token_client = token::Client::new(&env, &token_address);
+
+        // Transfer funds to assignee (after platform fee deduction)
         token_client.transfer(
             &env.current_contract_address(),
             &assignee,
-            &task.funding_amount,
+            &assignee_amount,
         );
     }
 
@@ -433,6 +460,63 @@ impl TaskMaster {
             &creator,
             &task.funding_amount,
         );
+    }
+
+    /// Withdraw accumulated platform fees (only deployer can call)
+    ///
+    /// # Arguments
+    /// * `deployer` - Address of the contract deployer
+    pub fn withdraw_platform_fees(env: Env, deployer: Address) {
+        deployer.require_auth();
+
+        // Verify caller is the deployer
+        let stored_deployer: Address = env
+            .storage()
+            .instance()
+            .get(&DEPLOYER)
+            .expect("Deployer not initialized");
+        
+        if stored_deployer != deployer {
+            panic!("Only deployer can withdraw platform fees");
+        }
+
+        // Get accumulated fees
+        let accumulated_fees: i128 = env
+            .storage()
+            .instance()
+            .get(&PLATFORM_FEES)
+            .unwrap_or(0i128);
+
+        if accumulated_fees <= 0 {
+            panic!("No platform fees to withdraw");
+        }
+
+        // Reset platform fees accumulator
+        env.storage().instance().set(&PLATFORM_FEES, &0i128);
+
+        // Transfer fees to deployer
+        let token_address: Address = env
+            .storage()
+            .instance()
+            .get(&TOKEN)
+            .expect("Token not initialized");
+        let token_client = token::Client::new(&env, &token_address);
+        token_client.transfer(
+            &env.current_contract_address(),
+            &deployer,
+            &accumulated_fees,
+        );
+    }
+
+    /// Get current accumulated platform fees
+    ///
+    /// # Returns
+    /// The total amount of accumulated platform fees
+    pub fn get_platform_fees(env: Env) -> i128 {
+        env.storage()
+            .instance()
+            .get(&PLATFORM_FEES)
+            .unwrap_or(0i128)
     }
 
     /// Reassign an expired task to a new assignee
@@ -606,3 +690,4 @@ impl TaskMaster {
         }
     }
 }
+

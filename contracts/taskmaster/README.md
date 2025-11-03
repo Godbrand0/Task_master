@@ -16,6 +16,7 @@ TaskMaster implements a dual-signature escrow system where funds are held in sma
 - **Completion Tracking**: Mark tasks as complete with wallet signature
 - **Refund System**: Cancel tasks and receive refunds
 - **Expiration Handling**: Automatic handling of expired tasks with reassignment or refund options
+- **Platform Fee**: Small fee (3%) collected from task funding to support platform operations
 
 ## Architecture
 
@@ -64,6 +65,7 @@ The contract uses the following storage keys:
 - `USER_TASKS`: Map<Address, Vec<u64>> - Maps users to their created task IDs
 - `ASSIGNED_TASKS`: Map<Address, Vec<u64>> - Maps users to their assigned task IDs
 - `TASK_COUNTER`: u64 - Auto-incrementing counter for unique task IDs
+- `PLATFORM_FEES`: i128 - Accumulated platform fees collected from task funding
 
 ## Functions
 
@@ -136,6 +138,18 @@ Reassigns an expired task to a new assignee.
 
 **Access Control:** Only the task creator can call this function.
 
+#### `withdraw_platform_fees()`
+
+Withdraws accumulated platform fees to the deployer's address.
+
+**Access Control:** Only the contract deployer can call this function.
+
+#### `get_platform_fees()`
+
+Retrieves the current amount of accumulated platform fees.
+
+**Returns:** Total platform fees accumulated in stroops.
+
 ### Query Functions
 
 #### `get_task(task_id)`
@@ -167,6 +181,64 @@ Retrieves all tasks assigned to a user.
 - `user`: Address of the user
 
 **Returns:** Vector of task IDs assigned to the user.
+
+## Platform Fee System
+
+### Overview
+
+TaskMaster implements a platform fee mechanism to sustain the ecosystem and support ongoing development. The fee is automatically collected when tasks are created and funded.
+
+### Fee Structure
+
+- **Fee Rate**: 3% of the task funding amount
+- **Collection**: Automatically deducted during task creation
+- **Storage**: Fees are accumulated in a separate storage variable
+- **Withdrawal**: Only the contract deployer can withdraw accumulated fees
+
+### Fee Calculation
+
+```rust
+// Example: For a task funded with 100 XLM (1,000,000,000 stroops)
+let funding_amount = 1_000_000_000; // 100 XLM in stroops
+let platform_fee = funding_amount * 3 / 100; // 30,000,000 stroops (3 XLM)
+let amount_to_task = funding_amount - platform_fee; // 970,000,000 stroops (97 XLM)
+```
+
+### Fee Distribution
+
+When a task is created:
+
+1. **Total Funding**: User sends the full amount (e.g., 100 XLM)
+2. **Platform Fee**: 3% is automatically deducted (3 XLM)
+3. **Task Escrow**: Remaining 97% goes to the task escrow
+4. **Fee Accumulation**: Platform fees are accumulated for later withdrawal
+
+### Benefits of Platform Fees
+
+- **Sustainability**: Ensures long-term maintenance of the platform
+- **Development**: Funds ongoing feature development and improvements
+- **Support**: Enables customer support and community management
+- **Infrastructure**: Covers hosting, security audits, and operational costs
+
+### Fee Withdrawal Process
+
+Only the contract deployer can withdraw accumulated platform fees:
+
+```rust
+// Called by deployer
+contract.withdraw_platform_fees();
+```
+
+This transfers all accumulated fees to the deployer's address and resets the fee counter to zero.
+
+### Transparency
+
+The platform fee system is designed for full transparency:
+
+- Fixed percentage rate (3%) that never changes
+- Fees are visible in the contract storage
+- Anyone can query total accumulated fees
+- Withdrawal events are recorded on-chain
 
 ## Security Features
 

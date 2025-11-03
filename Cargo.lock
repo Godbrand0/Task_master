@@ -247,6 +247,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "config"
+version = "0.1.0"
+
+[[package]]
 name = "const-oid"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -566,16 +570,6 @@ name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
-
-[[package]]
-name = "fungible-allowlist-example"
-version = "0.0.1"
-dependencies = [
- "soroban-sdk",
- "stellar-access",
- "stellar-macros",
- "stellar-tokens",
-]
 
 [[package]]
 name = "generic-array"
@@ -1353,32 +1347,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
-name = "stellar-access"
-version = "0.5.1"
-source = "git+https://github.com/OpenZeppelin/stellar-contracts?tag=v0.5.1#372a162a6df8aed108befa5573d30a8ca49cb271"
-dependencies = [
- "soroban-sdk",
-]
-
-[[package]]
-name = "stellar-contract-utils"
-version = "0.5.1"
-source = "git+https://github.com/OpenZeppelin/stellar-contracts?tag=v0.5.1#372a162a6df8aed108befa5573d30a8ca49cb271"
-dependencies = [
- "soroban-sdk",
-]
-
-[[package]]
-name = "stellar-macros"
-version = "0.5.1"
-source = "git+https://github.com/OpenZeppelin/stellar-contracts?tag=v0.5.1#372a162a6df8aed108befa5573d30a8ca49cb271"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.101",
-]
-
-[[package]]
 name = "stellar-strkey"
 version = "0.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1386,15 +1354,6 @@ checksum = "ee1832fb50c651ad10f734aaf5d31ca5acdfb197a6ecda64d93fcdb8885af913"
 dependencies = [
  "crate-git-revision",
  "data-encoding",
-]
-
-[[package]]
-name = "stellar-tokens"
-version = "0.5.1"
-source = "git+https://github.com/OpenZeppelin/stellar-contracts?tag=v0.5.1#372a162a6df8aed108befa5573d30a8ca49cb271"
-dependencies = [
- "soroban-sdk",
- "stellar-contract-utils",
 ]
 
 [[package]]

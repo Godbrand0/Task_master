@@ -3,7 +3,7 @@ extern crate std;
 
 use soroban_sdk::{
     testutils::{Address as _, Ledger},
-    token, Address, Env, String as SorobanString,
+    token, Address, Env, String as SorobanString, Vec,
 };
 
 // Import from the contract module
@@ -23,7 +23,7 @@ fn create_taskmaster_client<'a>(e: &Env) -> (TaskMasterClient<'a>, token::Client
     let contract_id = e.register(TaskMaster, ());
     let client = TaskMasterClient::new(e, &contract_id);
 
-    client.initialize(&token_client.address);
+    client.initialize(&token_client.address, &admin);
 
     (client, token_client, token_admin_client, admin)
 }
@@ -43,10 +43,13 @@ fn test_initialize() {
     let client = TaskMasterClient::new(&e, &contract_id);
 
     // Should initialize successfully
-    client.initialize(&token_client.address);
+    client.initialize(&token_client.address, &admin);
 
     // Verify task counter is set to 1
     assert_eq!(client.get_task_count(), 0);
+    
+    // Verify platform fees is initialized to 0
+    assert_eq!(client.get_platform_fees(), 0);
 }
 
 #[test]
@@ -60,9 +63,9 @@ fn test_initialize_twice_fails() {
     let contract_id = e.register(TaskMaster, ());
     let client = TaskMasterClient::new(&e, &contract_id);
 
-    client.initialize(&token_client.address);
+    client.initialize(&token_client.address, &admin);
     // Should panic on second initialization
-    client.initialize(&token_client.address);
+    client.initialize(&token_client.address, &admin);
 }
 
 #[test]
@@ -351,7 +354,7 @@ fn test_release_funds() {
     let e = Env::default();
     e.mock_all_auths();
 
-    let (client, token_client, token_admin_client, _) = create_taskmaster_client(&e);
+    let (client, token_client, token_admin_client, _admin) = create_taskmaster_client(&e);
     let creator = Address::generate(&e);
     let assignee = Address::generate(&e);
 
@@ -381,8 +384,15 @@ fn test_release_funds() {
     assert_eq!(task.status, TaskStatus::FundsReleased);
     assert!(task.creator_approved);
 
-    // Verify assignee received the funds
-    assert_eq!(token_client.balance(&assignee), funding_amount);
+    // Calculate expected amounts (3% platform fee)
+    let platform_fee = funding_amount * 3i128 / 100i128;
+    let assignee_amount = funding_amount - platform_fee;
+
+    // Verify assignee received the funds minus platform fee
+    assert_eq!(token_client.balance(&assignee), assignee_amount);
+    
+    // Verify platform fees were accumulated
+    assert_eq!(client.get_platform_fees(), platform_fee);
 }
 
 #[test]
@@ -801,8 +811,10 @@ fn test_complete_task_lifecycle() {
     assert_eq!(task.status, TaskStatus::FundsReleased);
     assert!(task.creator_approved);
 
-    // Verify funds were transferred
-    assert_eq!(token_client.balance(&assignee), funding_amount);
+    // Verify funds were transferred (minus platform fee)
+    let platform_fee = funding_amount * 3i128 / 100i128;
+    let expected_assignee_amount = funding_amount - platform_fee;
+    assert_eq!(token_client.balance(&assignee), expected_assignee_amount);
 }
 
 #[test]
@@ -870,4 +882,544 @@ fn test_task_count() {
     }
 
     assert_eq!(client.get_task_count(), 3);
+}
+
+#[test]
+fn test_withdraw_platform_fees() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let (client, token_client, token_admin_client, admin) = create_taskmaster_client(&e);
+    let creator = Address::generate(&e);
+    let assignee = Address::generate(&e);
+
+    mint_tokens(&token_admin_client, &creator, 10_000_000);
+
+    let title = SorobanString::from_str(&e, "Test Task");
+    let description = SorobanString::from_str(&e, "Test Description");
+    let funding_amount = 1_000_000i128;
+
+    let task_id = client.create_task(
+        &creator,
+        &title,
+        &description,
+        &None,
+        &funding_amount,
+        &(e.ledger().timestamp() + 86400),
+        &assignee,
+    );
+
+    // Complete and release funds to generate platform fees
+    client.complete_task(&assignee, &task_id);
+    client.release_funds(&creator, &task_id);
+
+    // Calculate expected platform fee (3%)
+    let expected_platform_fee = funding_amount * 3i128 / 100i128;
+    assert_eq!(client.get_platform_fees(), expected_platform_fee);
+
+    // Withdraw platform fees
+    client.withdraw_platform_fees(&admin);
+
+    // Verify platform fees were reset to 0
+    assert_eq!(client.get_platform_fees(), 0);
+    
+    // Verify admin received the platform fees
+    assert_eq!(token_client.balance(&admin), expected_platform_fee);
+}
+
+#[test]
+#[should_panic(expected = "Only deployer can withdraw platform fees")]
+fn test_withdraw_platform_fees_unauthorized_fails() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let (client, _token_client, token_admin_client, _admin) = create_taskmaster_client(&e);
+    let creator = Address::generate(&e);
+    let assignee = Address::generate(&e);
+    let unauthorized_user = Address::generate(&e);
+
+    mint_tokens(&token_admin_client, &creator, 10_000_000);
+
+    let title = SorobanString::from_str(&e, "Test Task");
+    let description = SorobanString::from_str(&e, "Test Description");
+
+    let task_id = client.create_task(
+        &creator,
+        &title,
+        &description,
+        &None,
+        &1_000_000i128,
+        &(e.ledger().timestamp() + 86400),
+        &assignee,
+    );
+
+    // Complete and release funds to generate platform fees
+    client.complete_task(&assignee, &task_id);
+    client.release_funds(&creator, &task_id);
+
+    // Try to withdraw platform fees with unauthorized user
+    client.withdraw_platform_fees(&unauthorized_user);
+}
+
+#[test]
+#[should_panic(expected = "No platform fees to withdraw")]
+fn test_withdraw_zero_platform_fees_fails() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let (client, _token_client, _token_admin_client, admin) = create_taskmaster_client(&e);
+
+    // Try to withdraw platform fees when there are none
+    client.withdraw_platform_fees(&admin);
+}
+
+#[test]
+fn test_multiple_tasks_platform_fees() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let (client, token_client, token_admin_client, admin) = create_taskmaster_client(&e);
+    let creator = Address::generate(&e);
+    let assignee = Address::generate(&e);
+
+    mint_tokens(&token_admin_client, &creator, 20_000_000);
+
+    let title = SorobanString::from_str(&e, "Test Task");
+    let description = SorobanString::from_str(&e, "Test Description");
+
+    // Create and complete two tasks with different funding amounts
+    let task_id1 = client.create_task(
+        &creator,
+        &title,
+        &description,
+        &None,
+        &1_000_000i128,
+        &(e.ledger().timestamp() + 86400),
+        &assignee,
+    );
+
+    let task_id2 = client.create_task(
+        &creator,
+        &title,
+        &description,
+        &None,
+        &2_000_000i128,
+        &(e.ledger().timestamp() + 86400),
+        &assignee,
+    );
+
+    // Complete both tasks
+    client.complete_task(&assignee, &task_id1);
+    client.complete_task(&assignee, &task_id2);
+
+    // Release funds for both tasks
+    client.release_funds(&creator, &task_id1);
+    client.release_funds(&creator, &task_id2);
+
+    // Calculate expected platform fees (3% of total funding)
+    let expected_platform_fee = (1_000_000i128 + 2_000_000i128) * 3i128 / 100i128;
+    assert_eq!(client.get_platform_fees(), expected_platform_fee);
+
+    // Withdraw platform fees
+    client.withdraw_platform_fees(&admin);
+
+    // Verify platform fees were reset to 0
+    assert_eq!(client.get_platform_fees(), 0);
+    
+    // Verify admin received the platform fees
+    assert_eq!(token_client.balance(&admin), expected_platform_fee);
+}
+
+#[test]
+fn test_platform_fee_small_amount() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let (client, token_client, token_admin_client, admin) = create_taskmaster_client(&e);
+    let creator = Address::generate(&e);
+    let assignee = Address::generate(&e);
+
+    // Test with a very small amount (100 stroops)
+    let funding_amount = 100i128;
+    mint_tokens(&token_admin_client, &creator, 10_000_000);
+
+    let title = SorobanString::from_str(&e, "Small Amount Task");
+    let description = SorobanString::from_str(&e, "Test with small amount");
+
+    let task_id = client.create_task(
+        &creator,
+        &title,
+        &description,
+        &None,
+        &funding_amount,
+        &(e.ledger().timestamp() + 86400),
+        &assignee,
+    );
+
+    // Complete and release funds
+    client.complete_task(&assignee, &task_id);
+    client.release_funds(&creator, &task_id);
+
+    // Calculate expected platform fee (3% of 100 = 3)
+    let expected_platform_fee = funding_amount * 3i128 / 100i128;
+    assert_eq!(client.get_platform_fees(), expected_platform_fee);
+    
+    // Verify assignee received the correct amount (100 - 3 = 97)
+    let expected_assignee_amount = funding_amount - expected_platform_fee;
+    assert_eq!(token_client.balance(&assignee), expected_assignee_amount);
+    
+    // Withdraw platform fees
+    client.withdraw_platform_fees(&admin);
+    
+    // Verify admin received the platform fees
+    assert_eq!(token_client.balance(&admin), expected_platform_fee);
+}
+
+#[test]
+fn test_platform_fee_large_amount() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let (client, token_client, token_admin_client, admin) = create_taskmaster_client(&e);
+    let creator = Address::generate(&e);
+    let assignee = Address::generate(&e);
+
+    // Test with a very large amount
+    let funding_amount = 10_000_000_000i128; // 10 billion stroops
+    mint_tokens(&token_admin_client, &creator, funding_amount);
+
+    let title = SorobanString::from_str(&e, "Large Amount Task");
+    let description = SorobanString::from_str(&e, "Test with large amount");
+
+    let task_id = client.create_task(
+        &creator,
+        &title,
+        &description,
+        &None,
+        &funding_amount,
+        &(e.ledger().timestamp() + 86400),
+        &assignee,
+    );
+
+    // Complete and release funds
+    client.complete_task(&assignee, &task_id);
+    client.release_funds(&creator, &task_id);
+
+    // Calculate expected platform fee (3% of 10 billion = 300 million)
+    let expected_platform_fee = funding_amount * 3i128 / 100i128;
+    assert_eq!(client.get_platform_fees(), expected_platform_fee);
+    
+    // Verify assignee received the correct amount
+    let expected_assignee_amount = funding_amount - expected_platform_fee;
+    assert_eq!(token_client.balance(&assignee), expected_assignee_amount);
+    
+    // Withdraw platform fees
+    client.withdraw_platform_fees(&admin);
+    
+    // Verify admin received the platform fees
+    assert_eq!(token_client.balance(&admin), expected_platform_fee);
+}
+
+#[test]
+fn test_multiple_platform_fee_withdrawals() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let (client, token_client, token_admin_client, admin) = create_taskmaster_client(&e);
+    let creator = Address::generate(&e);
+    let assignee = Address::generate(&e);
+
+    mint_tokens(&token_admin_client, &creator, 10_000_000);
+
+    let title = SorobanString::from_str(&e, "Task 1");
+    let description = SorobanString::from_str(&e, "First task");
+    let funding_amount1 = 1_000_000i128;
+
+    let task_id1 = client.create_task(
+        &creator,
+        &title,
+        &description,
+        &None,
+        &funding_amount1,
+        &(e.ledger().timestamp() + 86400),
+        &assignee,
+    );
+
+    // Complete and release funds for first task
+    client.complete_task(&assignee, &task_id1);
+    client.release_funds(&creator, &task_id1);
+
+    // Calculate expected platform fee for first task (3%)
+    let expected_platform_fee1 = funding_amount1 * 3i128 / 100i128;
+    assert_eq!(client.get_platform_fees(), expected_platform_fee1);
+
+    // Withdraw first batch of platform fees
+    client.withdraw_platform_fees(&admin);
+    assert_eq!(client.get_platform_fees(), 0);
+    assert_eq!(token_client.balance(&admin), expected_platform_fee1);
+
+    // Create a second task
+    let title2 = SorobanString::from_str(&e, "Task 2");
+    let description2 = SorobanString::from_str(&e, "Second task");
+    let funding_amount2 = 2_000_000i128;
+
+    let task_id2 = client.create_task(
+        &creator,
+        &title2,
+        &description2,
+        &None,
+        &funding_amount2,
+        &(e.ledger().timestamp() + 86400),
+        &assignee,
+    );
+
+    // Complete and release funds for second task
+    client.complete_task(&assignee, &task_id2);
+    client.release_funds(&creator, &task_id2);
+
+    // Calculate expected platform fee for second task (3%)
+    let expected_platform_fee2 = funding_amount2 * 3i128 / 100i128;
+    assert_eq!(client.get_platform_fees(), expected_platform_fee2);
+
+    // Withdraw second batch of platform fees
+    client.withdraw_platform_fees(&admin);
+    assert_eq!(client.get_platform_fees(), 0);
+    
+    // Verify admin received both batches of platform fees
+    assert_eq!(
+        token_client.balance(&admin),
+        expected_platform_fee1 + expected_platform_fee2
+    );
+}
+
+#[test]
+fn test_platform_fee_accumulation_many_tasks() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let (client, token_client, token_admin_client, admin) = create_taskmaster_client(&e);
+    let creator = Address::generate(&e);
+    let assignee = Address::generate(&e);
+
+    // Mint enough tokens for all tasks
+    let total_funding = 10_000_000i128 * 10; // 10 tasks with 10M each
+    mint_tokens(&token_admin_client, &creator, total_funding);
+
+    let title = SorobanString::from_str(&e, "Task");
+    let description = SorobanString::from_str(&e, "Test task");
+    let funding_amount = 10_000_000i128;
+    let mut task_ids = Vec::new(&e);
+
+    // Create 10 tasks
+    for _i in 0..10 {
+        let task_id = client.create_task(
+            &creator,
+            &title,
+            &description,
+            &None,
+            &funding_amount,
+            &(e.ledger().timestamp() + 86400),
+            &assignee,
+        );
+        task_ids.push_back(task_id);
+    }
+
+    // Complete all tasks
+    for i in 0..10 {
+        client.complete_task(&assignee, &task_ids.get(i).unwrap());
+    }
+
+    // Release funds for all tasks
+    for i in 0..10 {
+        client.release_funds(&creator, &task_ids.get(i).unwrap());
+    }
+
+    // Calculate expected platform fees (3% of total funding)
+    let total_funding_amount = funding_amount * 10i128;
+    let expected_platform_fee = total_funding_amount * 3i128 / 100i128;
+    assert_eq!(client.get_platform_fees(), expected_platform_fee);
+
+    // Withdraw all platform fees at once
+    client.withdraw_platform_fees(&admin);
+    assert_eq!(client.get_platform_fees(), 0);
+    
+    // Verify admin received all platform fees
+    assert_eq!(token_client.balance(&admin), expected_platform_fee);
+    
+    // Verify assignee received all funds minus platform fees
+    let expected_assignee_amount = total_funding_amount - expected_platform_fee;
+    assert_eq!(token_client.balance(&assignee), expected_assignee_amount);
+}
+
+#[test]
+fn test_no_platform_fee_for_cancelled_task() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let (client, token_client, token_admin_client, _admin) = create_taskmaster_client(&e);
+    let creator = Address::generate(&e);
+    let assignee = Address::generate(&e);
+
+    let funding_amount = 1_000_000i128;
+    mint_tokens(&token_admin_client, &creator, 10_000_000);
+
+    let title = SorobanString::from_str(&e, "Task to Cancel");
+    let description = SorobanString::from_str(&e, "This task will be cancelled");
+
+    let task_id = client.create_task(
+        &creator,
+        &title,
+        &description,
+        &None,
+        &funding_amount,
+        &(e.ledger().timestamp() + 86400),
+        &assignee,
+    );
+
+    // Cancel the task
+    client.cancel_task(&creator, &task_id);
+
+    // Verify no platform fees were charged
+    assert_eq!(client.get_platform_fees(), 0);
+    
+    // Verify creator received full refund
+    assert_eq!(token_client.balance(&creator), 10_000_000);
+}
+
+#[test]
+fn test_no_platform_fee_for_expired_task() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let (client, token_client, token_admin_client, _admin) = create_taskmaster_client(&e);
+    let creator = Address::generate(&e);
+    let assignee = Address::generate(&e);
+
+    let funding_amount = 1_000_000i128;
+    mint_tokens(&token_admin_client, &creator, 10_000_000);
+
+    let title = SorobanString::from_str(&e, "Task to Expire");
+    let description = SorobanString::from_str(&e, "This task will expire");
+    let deadline = e.ledger().timestamp() + 100;
+
+    let task_id = client.create_task(
+        &creator,
+        &title,
+        &description,
+        &None,
+        &funding_amount,
+        &deadline,
+        &assignee,
+    );
+
+    // Advance time past deadline
+    e.ledger().with_mut(|li| {
+        li.timestamp = deadline + 1;
+    });
+
+    // Mark as expired
+    client.mark_expired(&task_id);
+
+    // Reclaim expired funds
+    client.reclaim_expired_funds(&creator, &task_id);
+
+    // Verify no platform fees were charged
+    assert_eq!(client.get_platform_fees(), 0);
+    
+    // Verify creator received full refund
+    assert_eq!(token_client.balance(&creator), 10_000_000);
+}
+
+#[test]
+fn test_get_platform_fees_when_none_exist() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let (client, _token_client, _token_admin_client, _admin) = create_taskmaster_client(&e);
+
+    // Verify platform fees is 0 when no tasks have been completed
+    assert_eq!(client.get_platform_fees(), 0);
+}
+
+#[test]
+fn test_platform_fee_calculation_precision() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let (client, token_client, token_admin_client, admin) = create_taskmaster_client(&e);
+    let creator = Address::generate(&e);
+    let assignee = Address::generate(&e);
+
+    // Test with amounts that might have rounding issues with 3%
+    let funding_amount1 = 101i128; // 3% = 3.03, should be 3
+    let funding_amount2 = 99i128;   // 3% = 2.97, should be 2
+    let funding_amount3 = 333i128; // 3% = 9.99, should be 9
+    
+    let total_funding = funding_amount1 + funding_amount2 + funding_amount3;
+    mint_tokens(&token_admin_client, &creator, total_funding + 1_000_000);
+
+    let title = SorobanString::from_str(&e, "Precision Test Task");
+    let description = SorobanString::from_str(&e, "Testing precision");
+
+    // Create and complete first task
+    let task_id1 = client.create_task(
+        &creator,
+        &title,
+        &description,
+        &None,
+        &funding_amount1,
+        &(e.ledger().timestamp() + 86400),
+        &assignee,
+    );
+    client.complete_task(&assignee, &task_id1);
+    client.release_funds(&creator, &task_id1);
+
+    // Create and complete second task
+    let task_id2 = client.create_task(
+        &creator,
+        &title,
+        &description,
+        &None,
+        &funding_amount2,
+        &(e.ledger().timestamp() + 86400),
+        &assignee,
+    );
+    client.complete_task(&assignee, &task_id2);
+    client.release_funds(&creator, &task_id2);
+
+    // Create and complete third task
+    let task_id3 = client.create_task(
+        &creator,
+        &title,
+        &description,
+        &None,
+        &funding_amount3,
+        &(e.ledger().timestamp() + 86400),
+        &assignee,
+    );
+    client.complete_task(&assignee, &task_id3);
+    client.release_funds(&creator, &task_id3);
+
+    // Calculate expected platform fees (using integer division)
+    let expected_fee1 = funding_amount1 * 3i128 / 100i128;
+    let expected_fee2 = funding_amount2 * 3i128 / 100i128;
+    let expected_fee3 = funding_amount3 * 3i128 / 100i128;
+    let total_expected_fee = expected_fee1 + expected_fee2 + expected_fee3;
+
+    // Verify platform fees were calculated correctly
+    assert_eq!(client.get_platform_fees(), total_expected_fee);
+
+    // Withdraw platform fees
+    client.withdraw_platform_fees(&admin);
+    
+    // Verify admin received the correct amount
+    assert_eq!(token_client.balance(&admin), total_expected_fee);
+    
+    // Verify assignee received the correct amounts
+    let expected_assignee_amount1 = funding_amount1 - expected_fee1;
+    let expected_assignee_amount2 = funding_amount2 - expected_fee2;
+    let expected_assignee_amount3 = funding_amount3 - expected_fee3;
+    let total_expected_assignee_amount = expected_assignee_amount1 + expected_assignee_amount2 + expected_assignee_amount3;
+    
+    assert_eq!(token_client.balance(&assignee), total_expected_assignee_amount);
 }
