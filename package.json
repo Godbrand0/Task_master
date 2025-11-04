@@ -11,7 +11,11 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier . --write",
-    "prepare": "husky"
+    "prepare": "husky",
+    "script:basic": "npx tsx scripts/basic-interaction.ts",
+    "script:task-test": "npx tsx scripts/task-management-test.ts",
+    "script:wallet": "npx tsx scripts/wallet-interaction.ts",
+    "script:verify": "npx tsx scripts/contract-verification.ts"
   },
   "workspaces": [
     "packages/*"
@@ -31,6 +35,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
+    "@types/lodash": "^4.17.20",
     "@types/react": "^19.1.16",
     "@types/react-dom": "^19.1.9",
     "@types/react-router-dom": "^5.3.3",

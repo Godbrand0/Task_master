@@ -34,7 +34,7 @@ import { ErrorText } from "./ErrorText";
 import { PrettyJsonTransaction } from "./PrettyJsonTransaction";
 import { TransactionSuccessCard } from "./TransactionSuccessCard";
 import { RpcErrorResponse } from "./ErrorResponse";
-import { network } from "../../contracts/util";
+import { NETWORK_PASSPHRASE, rpcUrl } from "../../util/contract";
 import { JsonSchemaRenderer } from "./JsonSchemaRenderer";
 import { ValidationResponseCard } from "./ValidationResponseCard";
 import { Api } from "@stellar/stellar-sdk/rpc";
@@ -104,8 +104,8 @@ export const InvokeContractForm = ({
     refetch: fetchSequenceNumber,
   } = useAccountSequenceNumber({
     publicKey: userPk || "",
-    horizonUrl: network.horizonUrl,
-    headers: getNetworkHeaders(network, "horizon"),
+    horizonUrl: import.meta.env.PUBLIC_STELLAR_HORIZON_URL || "https://horizon-testnet.stellar.org",
+    headers: getNetworkHeaders({}, "horizon"),
     uniqueId: funcName,
     enabled: !!userPk,
   });
@@ -148,7 +148,7 @@ export const InvokeContractForm = ({
       try {
         const result = await signTransaction(xdr || "", {
           address: userPk,
-          networkPassphrase: network.passphrase,
+          networkPassphrase: NETWORK_PASSPHRASE,
         });
 
         if (result.signedTxXdr && result.signedTxXdr !== "") {
@@ -279,10 +279,10 @@ export const InvokeContractForm = ({
         );
       }
       submitRpc({
-        rpcUrl: network.rpcUrl,
+        rpcUrl: rpcUrl,
         transactionXdr: signedTxXdr,
-        networkPassphrase: network.passphrase,
-        headers: getNetworkHeaders(network, "rpc"),
+        networkPassphrase: NETWORK_PASSPHRASE,
+        headers: getNetworkHeaders({}, "rpc"),
       });
     } catch (error: unknown) {
       setInvokeError({
@@ -324,23 +324,23 @@ export const InvokeContractForm = ({
         formValue,
         txnParams,
         sorobanOperation,
-        network.passphrase,
+        NETWORK_PASSPHRASE,
       );
 
       if (xdr) {
         simulateTx({
-          rpcUrl: network.rpcUrl,
+          rpcUrl: rpcUrl,
           transactionXdr: xdr,
-          headers: getNetworkHeaders(network, "rpc"),
+          headers: getNetworkHeaders({}, "rpc"),
         });
 
         // using prepareTransaction instead of assembleTransaction because
         // assembleTransaction requires an auth, but signing for simulation is rare
         prepareTx({
-          rpcUrl: network.rpcUrl,
+          rpcUrl: rpcUrl,
           transactionXdr: xdr,
-          networkPassphrase: network.passphrase,
-          headers: getNetworkHeaders(network, "rpc"),
+          networkPassphrase: NETWORK_PASSPHRASE,
+          headers: getNetworkHeaders({}, "rpc"),
         });
       }
 
@@ -528,7 +528,7 @@ export const InvokeContractForm = ({
   };
 
   const isSuccessfulTxExection =
-    isSubmitRpcSuccess && submitRpcResponse && network.id;
+    isSubmitRpcSuccess && submitRpcResponse;
 
   const renderSuccess = () => {
     if (isSuccessfulTxExection) {

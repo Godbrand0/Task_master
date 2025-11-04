@@ -6,10 +6,10 @@ import {
   sep43Modules,
 } from "@creit.tech/stellar-wallets-kit";
 import { Horizon } from "@stellar/stellar-sdk";
-import { networkPassphrase, stellarNetwork } from "../contracts/util";
+import { NETWORK_PASSPHRASE } from "../util/contract";
 
 const kit: StellarWalletsKit = new StellarWalletsKit({
-  network: networkPassphrase as WalletNetwork,
+  network: NETWORK_PASSPHRASE as WalletNetwork,
   modules: sep43Modules(),
 });
 
@@ -69,8 +69,8 @@ function getHorizonHost(mode: string) {
 }
 
 export const fetchBalance = async (address: string) => {
-  const horizon = new Horizon.Server(getHorizonHost(stellarNetwork), {
-    allowHttp: stellarNetwork === "LOCAL",
+  const horizon = new Horizon.Server(getHorizonHost(NETWORK_PASSPHRASE), {
+    allowHttp: NETWORK_PASSPHRASE === "Standalone Network ; February 2017",
   });
 
   const { balances } = await horizon.accounts().accountId(address).call();

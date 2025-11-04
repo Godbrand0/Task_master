@@ -1,7 +1,7 @@
 import { Button, Card, Link, Text } from "@stellar/design-system";
 import { Box } from "../../components/layout/Box";
 import { useState } from "react";
-import { labPrefix } from "../../contracts/util";
+import { labPrefix } from "../../util/contract";
 
 type ValidationResponseCard = {
   variant: "primary" | "success" | "error";
@@ -134,7 +134,7 @@ export const ValidationResponseCard = ({
               </Button>
               {txHash ? (
                 <Link
-                  href={`${labPrefix()}&txDashboard$transactionHash=${txHash}`}
+                  href={`${labPrefix}&txDashboard$transactionHash=${txHash}`}
                   size="xs"
                 >
                   See on lab

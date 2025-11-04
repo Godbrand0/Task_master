@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Server } from "@stellar/stellar-sdk/rpc";
-import { network } from "../../contracts/util";
+import { rpcUrl } from "../../util/contract";
 import { Contract } from "@stellar/stellar-sdk";
 import { decode_stream, encode, initialize } from "./StellarXdr";
 import {
@@ -55,7 +55,7 @@ export const loadContractMetadata = async (contractId: string) => {
 
 const loadWasmHash = async (contractId: string) => {
   try {
-    const server = new Server(network.rpcUrl, { allowHttp: true });
+    const server = new Server(rpcUrl, { allowHttp: true });
 
     const contractLedgerKey = new Contract(contractId).getFootprint();
     const response = await server.getLedgerEntries(contractLedgerKey);
@@ -79,7 +79,7 @@ const loadWasmHash = async (contractId: string) => {
 
 const loadWasmBinary = async (wasmHash: string) => {
   try {
-    const server = new Server(network.rpcUrl, { allowHttp: true });
+    const server = new Server(rpcUrl, { allowHttp: true });
 
     return await server.getContractWasmByHash(wasmHash, "hex");
   } catch (error) {
@@ -90,7 +90,7 @@ const loadWasmBinary = async (wasmHash: string) => {
 
 export const getWasmContractData = async (wasmBytes: Buffer) => {
   try {
-    const mod = await WebAssembly.compile(wasmBytes);
+    const mod = await WebAssembly.compile(new Uint8Array(wasmBytes));
     const result: Record<ContractSectionName, ContractData> = {
       contractmetav0: {},
       contractenvmetav0: {},

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Server, Api } from "@stellar/stellar-sdk/rpc";
 import { xdr } from "@stellar/stellar-sdk";
-import { rpcUrl, stellarNetwork } from "../contracts/util";
+import { rpcUrl, NETWORK_PASSPHRASE } from "../util/contract";
 
 /**
  * Concatenated `${contractId}:${topic}`
@@ -18,7 +18,7 @@ const paging: Record<
 > = {};
 
 // NOTE: Server is configured using envvars which shouldn't change during runtime
-const server = new Server(rpcUrl, { allowHttp: stellarNetwork === "LOCAL" });
+const server = new Server(rpcUrl, { allowHttp: NETWORK_PASSPHRASE === "Standalone Network ; February 2017" });
 
 /**
  * Subscribe to events for a given topic from a given contract, using a library
@@ -78,7 +78,9 @@ export function useSubscription(
                 error,
               );
             } finally {
-              paging[id].pagingToken = event.pagingToken;
+              if ('pagingToken' in event && typeof event.pagingToken === 'string') {
+                  paging[id].pagingToken = event.pagingToken;
+              }
             }
           });
         }

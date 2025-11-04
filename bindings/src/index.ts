@@ -36,7 +36,7 @@ export interface Task {
   deadline: u64;
   description: string;
   funding_amount: i128;
-  github_link: Option<string>;
+  github_link: string;  // Changed from Option<string> to string
   id: u64;
   status: TaskStatus;
   title: string;
@@ -100,7 +100,7 @@ export interface Client {
       creator: string;
       title: string;
       description: string;
-      github_link: Option<string>;
+      github_link: string;  // Changed from Option<string> to string
       funding_amount: i128;
       deadline: u64;
       assignee: string;

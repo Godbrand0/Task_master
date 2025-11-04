@@ -10,7 +10,7 @@ import { getNetworkHeaders } from "../util/getNetworkHeaders";
 import { useCheckTxSignatures } from "../hooks/useCheckTxSignatures";
 
 import { AnyObject } from "../types/types";
-import { network } from "../../contracts/util";
+import { NETWORK_PASSPHRASE } from "../../util/contract";
 
 type PrettyJsonTransactionProps = {
   xdr: string;
@@ -23,9 +23,9 @@ export const PrettyJsonTransaction = ({
 }: PrettyJsonTransactionProps) => {
   const { data, isFetching, isLoading, refetch } = useCheckTxSignatures({
     xdr,
-    networkPassphrase: network.passphrase,
-    networkUrl: network.horizonUrl,
-    headers: getNetworkHeaders(network, "horizon"),
+    networkPassphrase: NETWORK_PASSPHRASE,
+    networkUrl: import.meta.env.PUBLIC_STELLAR_HORIZON_URL || "https://horizon-testnet.stellar.org",
+    headers: getNetworkHeaders({}, "horizon"),
   });
 
   const isTx = Boolean(json?.tx || json?.tx_fee_bump);

@@ -29,7 +29,7 @@ pub struct Task {
     pub id: u64,                    // Unique identifier
     pub title: String,              // Task title
     pub description: String,        // Detailed description
-    pub github_link: Option<String>, // Optional GitHub repository
+    pub github_link: String,        // GitHub repository link (can be empty string)
     pub funding_amount: i128,       // Amount funded in stroops
     pub deadline: u64,              // Unix timestamp
     pub creator: Address,           // Creator's address
@@ -89,7 +89,7 @@ impl TaskMaster {
     /// * `creator` - Address of the task creator
     /// * `title` - Task title
     /// * `description` - Detailed description of the task
-    /// * `github_link` - Optional GitHub repository link
+    /// * `github_link` - GitHub repository link (can be empty string)
     /// * `funding_amount` - Amount to fund the task (in stroops)
     /// * `deadline` - Unix timestamp for the task deadline
     /// * `assignee` - Address of the assigned user
@@ -101,7 +101,7 @@ impl TaskMaster {
         creator: Address,
         title: String,
         description: String,
-        github_link: Option<String>,
+        github_link: String,
         funding_amount: i128,
         deadline: u64,
         assignee: Address,
@@ -131,7 +131,7 @@ impl TaskMaster {
             .get(&TOKEN)
             .expect("Token not initialized");
         let token_client = token::Client::new(&env, &token_address);
-        token_client.transfer(&creator, &env.current_contract_address(), &funding_amount);
+        token_client.transfer(&creator, &token_address, &funding_amount);
 
         // Create new task
         let task = Task {
