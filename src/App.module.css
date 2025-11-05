@@ -1,0 +1,41 @@
+/* App layout theming */
+
+.appMain {
+  min-height: 100%;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  display: flex;
+  flex-direction: column;
+}
+
+.appContent {
+  flex: 1;
+  padding-bottom: var(--space-12);
+}
+
+.appHeader {
+  background: white;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-ink), white 88%);
+  padding: var(--space-4) var(--space-6);
+}
+
+.navBar {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.navButton {
+  color: var(--color-navy);
+}
+
+.navButton[disabled] {
+  color: color-mix(in oklab, var(--color-navy), white 35%);
+}
+
+.appFooter {
+  margin-top: auto;
+  background: white;
+  border-top: 1px solid color-mix(in oklab, var(--color-ink), white 88%);
+  padding: var(--space-6) var(--space-6);
+}
+

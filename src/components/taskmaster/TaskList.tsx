@@ -4,6 +4,7 @@ import { Task } from "../../util/contract";
 import { useWallet } from "../../hooks/useWallet";
 import { taskMasterService } from "../../services/taskmaster";
 import TaskCard from "./TaskCard";
+import TaskModal from "./TaskModal";
 
 interface TaskListProps {
   filter?: "all" | "created" | "assigned";
@@ -15,6 +16,8 @@ const TaskList: React.FC<TaskListProps> = ({ filter = "all" }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<"deadline" | "created" | "funding">("created");
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const loadTasks = async () => {
@@ -135,7 +138,7 @@ const TaskList: React.FC<TaskListProps> = ({ filter = "all" }) => {
   if (loading) {
     return (
       <Card>
-        <div style={{ padding: "2rem", textAlign: "center" }}>
+        <div style={{ padding: "var(--space-8)", textAlign: "center" }}>
           <Text as="p" size="md">Loading tasks...</Text>
         </div>
       </Card>
@@ -145,7 +148,7 @@ const TaskList: React.FC<TaskListProps> = ({ filter = "all" }) => {
   if (!address) {
     return (
       <Card>
-        <div style={{ padding: "2rem", textAlign: "center" }}>
+        <div style={{ padding: "var(--space-8)", textAlign: "center" }}>
           <Text as="p" size="md">Please connect your wallet to view tasks.</Text>
         </div>
       </Card>
@@ -153,10 +156,10 @@ const TaskList: React.FC<TaskListProps> = ({ filter = "all" }) => {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+    <div className="stack-4">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <Heading as="h2" size="lg">{getFilterDescription()}</Heading>
-        <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>
           <Text as="span" size="sm">Sort by:</Text>
           <Select
             id="sort"
@@ -173,25 +176,45 @@ const TaskList: React.FC<TaskListProps> = ({ filter = "all" }) => {
 
       {tasks.length === 0 ? (
         <Card>
-          <div style={{ padding: "2rem", textAlign: "center" }}>
+          <div style={{ padding: "var(--space-8)", textAlign: "center" }}>
             <Text as="p" size="md">No tasks found.</Text>
           </div>
         </Card>
       ) : (
-        <div style={{ display: "grid", gap: "1rem" }}>
-          {tasks.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onStartTask={() => handleTaskAction("start", task.id)}
-              onCompleteTask={() => handleTaskAction("complete", task.id)}
-              onApproveTask={() => handleTaskAction("approve", task.id)}
-              onCancelTask={() => handleTaskAction("cancel", task.id)}
-              onReclaimFunds={() => handleTaskAction("reclaim", task.id)}
-              onReassignTask={() => handleTaskAction("reassign", task.id)}
+        <>
+          <div style={{ display: "grid", gap: "var(--space-4)" }}>
+            {tasks.map((task) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                onStartTask={() => handleTaskAction("start", task.id)}
+                onCompleteTask={() => handleTaskAction("complete", task.id)}
+                onApproveTask={() => handleTaskAction("approve", task.id)}
+                onCancelTask={() => handleTaskAction("cancel", task.id)}
+                onReclaimFunds={() => handleTaskAction("reclaim", task.id)}
+                onReassignTask={() => handleTaskAction("reassign", task.id)}
+                onTaskClick={(taskId) => {
+                  setSelectedTaskId(taskId);
+                  setIsModalOpen(true);
+                }}
+              />
+            ))}
+          </div>
+          {selectedTaskId !== null && (
+            <TaskModal
+              taskId={selectedTaskId}
+              isOpen={isModalOpen}
+              onClose={() => {
+                setIsModalOpen(false);
+                setSelectedTaskId(null);
+              }}
+              onTaskUpdated={() => {
+                // Reload tasks after action
+                window.location.reload();
+              }}
             />
-          ))}
-        </div>
+          )}
+        </>
       )}
     </div>
   );

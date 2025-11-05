@@ -97,10 +97,10 @@ const TaskCreationForm: React.FC<TaskCreationFormProps> = ({ onTaskCreated }) =>
 
   return (
     <Card>
-      <div style={{ padding: "1.5rem" }}>
+      <div style={{ padding: "var(--space-6)" }}>
         <Heading as="h2" size="md">Create New Task</Heading>
         
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
           <div>
             <Input
               id="title"
@@ -152,7 +152,7 @@ const TaskCreationForm: React.FC<TaskCreationFormProps> = ({ onTaskCreated }) =>
               required
             />
             {formData.fundingAmount && (
-              <Text as="p" size="sm" style={{ marginTop: "0.5rem" }}>
+              <Text as="p" size="sm" style={{ marginTop: "var(--space-2)" }}>
                 Platform fee (3%): {calculatePlatformFee()} XLM
                 <br />
                 Total: {calculateTotal()} XLM

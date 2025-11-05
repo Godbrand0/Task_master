@@ -12,6 +12,7 @@ interface TaskCardProps {
   onCancelTask?: (taskId: number) => void;
   onReclaimFunds?: (taskId: number) => void;
   onReassignTask?: (taskId: number) => void;
+  onTaskClick?: (taskId: number) => void;
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({
@@ -22,6 +23,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onCancelTask,
   onReclaimFunds,
   onReassignTask,
+  onTaskClick,
 }) => {
   const { address } = useWallet();
   
@@ -87,7 +89,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
     
     return actions.length > 0 ? (
-      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
         {actions}
       </div>
     ) : null;
@@ -95,7 +97,19 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
   return (
     <Card>
-      <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+      <div 
+        style={{ 
+          display: "flex", 
+          flexDirection: "column", 
+          gap: "var(--space-4)",
+          cursor: onTaskClick ? "pointer" : "default"
+        }}
+        onClick={() => {
+          if (onTaskClick) {
+            onTaskClick(task.id);
+          }
+        }}
+      >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <Heading as="h3" size="sm">{task.title.replace(/Task/g, "Bounty")}</Heading>
           <StatusBadge status={task.status} />
@@ -104,15 +118,15 @@ const TaskCard: React.FC<TaskCardProps> = ({
         <Text as="p" size="sm">{task.description}</Text>
         
         {task.github_link && task.github_link !== "" && (
-          <Text as="p" size="sm">
+          <Text as="p" size="sm" onClick={(e) => e.stopPropagation()}>
             <strong>GitHub:</strong>{" "}
-            <a href={task.github_link} target="_blank" rel="noopener noreferrer">
+            <a href={task.github_link} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
               {task.github_link}
             </a>
           </Text>
         )}
         
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }}>
           <div>
             <Text as="p" size="sm"><strong>Funding:</strong> {formatAmount(task.funding_amount)} XLM</Text>
             <Text as="p" size="sm"><strong>Deadline:</strong> {formatDate(task.deadline)}</Text>
@@ -130,10 +144,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
         )}
         
         {isExpired && task.status !== TaskStatus.Expired && task.status !== TaskStatus.Cancelled && (
-          <Text as="p" size="sm" style={{ color: "red" }}>This task has expired!</Text>
+          <Text as="p" size="sm" style={{ color: "color-mix(in oklab, var(--color-ink), red 35%)" }}>This task has expired!</Text>
         )}
         
-        {renderActions()}
+        {renderActions() && (
+          <div onClick={(e) => e.stopPropagation()}>
+            {renderActions()}
+          </div>
+        )}
       </div>
     </Card>
   );

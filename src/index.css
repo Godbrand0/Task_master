@@ -1,2 +1,5 @@
-/* Import font for Stellar Design System */
+/* Theme tokens and utilities */
+@import url("./styles/theme.css");
+
+/* Import font for Stellar Design System (kept for compatibility) */
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Inconsolata:wght@500&display=swap");

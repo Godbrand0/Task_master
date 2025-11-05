@@ -86,12 +86,12 @@ const Debugger: React.FC = () => {
     <Layout.Content>
       {/* Top Info Box */}
       <Layout.Inset>
-        <h2>Debug Contracts</h2>
+        <h2 className="headline-long" style={{ marginBottom: "var(--space-2)" }}>Debug Contracts</h2>
         <p>
           You can debug & interact with your deployed contracts here. Check{" "}
           <Code size="md">src/contracts/*.ts</Code>
         </p>
-        <hr />
+        <hr style={{ borderColor: "color-mix(in oklab, var(--color-ink), white 88%)" }} />
       </Layout.Inset>
 
       {/* Contract Selector Pills */}
@@ -99,9 +99,9 @@ const Debugger: React.FC = () => {
         <div
           style={{
             display: "flex",
-            gap: "0.5rem",
-            marginBottom: "1rem",
-            marginTop: "1rem",
+            gap: "var(--space-2)",
+            marginBottom: "var(--space-4)",
+            marginTop: "var(--space-4)",
             flexWrap: "wrap",
           }}
         >
@@ -134,7 +134,7 @@ const Debugger: React.FC = () => {
 
       {failedContracts[selectedContract] && (
         <Layout.Inset>
-          <h2>{selectedContract}</h2>
+          <h2 className="headline-long">{selectedContract}</h2>
           <p style={{ color: "red" }}>
             Failed to import contract: {failedContracts[selectedContract]}
           </p>
@@ -144,8 +144,8 @@ const Debugger: React.FC = () => {
       {contractMap[selectedContract] && (
         <>
           <Layout.Inset>
-            <div style={{ marginTop: "0 2rem" }}>
-              <div style={{ display: "flex", flexFlow: "column", gap: "1rem" }}>
+            <div>
+              <div className="stack-4">
                 {/* Contract detail card */}
                 <div
                   style={{
@@ -186,7 +186,7 @@ const Debugger: React.FC = () => {
                       variant="tertiary"
                       size="sm"
                       onClick={() => setIsDetailExpanded(!isDetailExpanded)}
-                      style={{ justifySelf: "flex-end", marginTop: "1rem" }}
+                      style={{ justifySelf: "flex-end", marginTop: "var(--space-4)" }}
                     >
                       {isDetailExpanded ? "Hide Details" : "Show Details"}
                     </Button>

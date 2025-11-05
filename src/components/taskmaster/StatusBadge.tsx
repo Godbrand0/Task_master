@@ -31,7 +31,7 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
   };
 
   return (
-    <Badge variant={getStatusVariant(status) as any}>
+    <Badge variant={getStatusVariant(status) as any} style={{ textTransform: "none" }}>
       {status}
     </Badge>
   );
