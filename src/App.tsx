@@ -9,29 +9,10 @@ const AppLayout: React.FC = () => (
   <main className={styles.appMain}>
     <div className={styles.appHeader}>
       <Layout.Header
-        projectId="TaskMaster"
-        projectTitle="TaskMaster"
+        projectId="TASKMASTER"
+        projectTitle="TASKMASTER"
         contentRight={
           <>
-            <nav className={styles.navBar}>
-              <NavLink
-                to="/taskmaster"
-                className={({ isActive }) => isActive ? styles.navButton : "no-underline"}
-              >
-                {({ isActive }) => (
-                  <Button
-                    variant="tertiary"
-                    size="md"
-                    className={styles.navButton}
-                    onClick={() => (window.location.href = "/taskmaster")}
-                    disabled={isActive}
-                  >
-                    <Icon.FileX02 size="md" />
-                    TaskMaster
-                  </Button>
-                )}
-              </NavLink>
-            </nav>
             <ConnectAccount />
           </>
         }
