@@ -1,41 +1,48 @@
 /* App layout theming */
 
 .appMain {
-  min-height: 100%;
-  background: var(--color-bg);
-  color: var(--color-ink);
+  height: 20px;
+  background-color: #F6F7F8;
+  color: #0F0F0F;
   display: flex;
   flex-direction: column;
 }
 
 .appContent {
   flex: 1;
-  padding-bottom: var(--space-12);
+  padding-bottom: 48px;
+  
 }
 
 .appHeader {
-  background: white;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-ink), white 88%);
-  padding: var(--space-4) var(--space-6);
+  background-color: white;
+  border-bottom: 1px solid #D6D2C4;
+  padding-left: 16px;
+  padding-right: 16px;
+  padding-top: 2px;
+  padding-bottom: 2px;
 }
 
 .navBar {
   display: flex;
-  gap: var(--space-3);
+  gap: 12px;
 }
 
 .navButton {
-  color: var(--color-navy);
+  color: #002E5D;
 }
 
 .navButton[disabled] {
-  color: color-mix(in oklab, var(--color-navy), white 35%);
+  color: #002E5D;
+  opacity: 0.35;
 }
 
 .appFooter {
   margin-top: auto;
-  background: white;
-  border-top: 1px solid color-mix(in oklab, var(--color-ink), white 88%);
-  padding: var(--space-6) var(--space-6);
+  background-color: white;
+  border-top: 1px solid #D6D2C4;
+  padding-left: 16px;
+  padding-right: 16px;
+  padding-top: 3px;
+  padding-bottom: 2px;
 }
-

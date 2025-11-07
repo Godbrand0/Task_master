@@ -34,16 +34,10 @@ const NetworkPill: React.FC = () => {
 
   return (
     <div
+      className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold"
       style={{
         backgroundColor: bgColor,
         color: textColor,
-        padding: "4px 10px",
-        borderRadius: "16px",
-        fontSize: "12px",
-        fontWeight: "bold",
-        display: "flex",
-        alignItems: "center",
-        gap: "4px",
         cursor: isNetworkMismatch ? "help" : "default",
       }}
       title={title}

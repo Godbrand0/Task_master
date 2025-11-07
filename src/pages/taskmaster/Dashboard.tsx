@@ -1,57 +1,136 @@
-import React, { useState } from "react";
-import { Card, Heading, Text, Button } from "@stellar/design-system";
+import React, { useState, useEffect, useCallback } from "react";
+import { Heading, Text, Button } from "@stellar/design-system";
 import { useWallet } from "../../hooks/useWallet";
+import { TaskStatus } from "../../util/contract";
 import TaskCreationForm from "../../components/taskmaster/TaskCreationForm";
 import TaskList from "../../components/taskmaster/TaskList";
 import TaskDetails from "./TaskDetails";
+import { UsernameRegistrationModal } from "../../components/taskmaster/UsernameRegistrationModal";
 import { taskMasterService } from "../../services/taskmaster";
 import { useParams, useNavigate } from "react-router-dom";
 
+interface DashboardStats {
+  totalTasks: number;
+  createdTasks: number;
+  assignedTasks: number;
+  completedTasks: number;
+  totalFunding: bigint;
+}
+
 const Dashboard: React.FC = () => {
-  const { address, signTransaction } = useWallet();
+  const { address, signTransaction, userProfile, isProfileLoading } = useWallet();
   const navigate = useNavigate();
   const { taskId } = useParams<{ taskId?: string }>();
-  const [activeTab, setActiveTab] = useState<"tasks" | "create">("tasks");
-  const [taskFilter, setTaskFilter] = useState<"all" | "created" | "assigned">(
-    "all"
-  );
+  
+  // Check if contract was already initialized for this address
+  const getIsInitialized = () => {
+    const key = `contract_initialized_${address}`;
+    return localStorage.getItem(key) === 'true';
+  };
+  
+  const setIsInitialized = (value: boolean) => {
+    const key = `contract_initialized_${address}`;
+    localStorage.setItem(key, value.toString());
+  };
+  const [activeTab, setActiveTab] = useState<"overview" | "tasks" | "create">("overview");
+  const [taskFilter, setTaskFilter] = useState<"all" | "created" | "assigned">("all");
   const [platformFees, setPlatformFees] = useState<bigint>(0n);
   const [loadingFees, setLoadingFees] = useState(false);
+  const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalTasks: 0,
+    createdTasks: 0,
+    assignedTasks: 0,
+    completedTasks: 0,
+    totalFunding: 0n,
+  });
+  const [loadingStats, setLoadingStats] = useState(false);
 
-  const loadPlatformFees = async () => {
+  const loadPlatformFees = useCallback(async () => {
     if (!address) return;
 
     try {
       setLoadingFees(true);
-
-      // Debug logging
-      console.log("Loading platform fees...");
-      console.log("Contract ID:", taskMasterService.contractId);
-      console.log("Client options:", {
-        rpcUrl: taskMasterService.client.options.rpcUrl,
-        networkPassphrase: taskMasterService.client.options.networkPassphrase,
-        contractId: taskMasterService.client.options.contractId,
-      });
-
       const fees = await taskMasterService.getPlatformFees();
-      console.log("Platform fees loaded:", fees.toString());
       setPlatformFees(fees);
     } catch (error) {
       console.error("Error loading platform fees:", error);
-      console.error("Error details:", JSON.stringify(error, null, 2));
     } finally {
       setLoadingFees(false);
     }
-  };
+  }, [address]);
 
-  const initializeContract = async () => {
+  const loadDashboardStats = useCallback(async () => {
     if (!address) return;
 
     try {
-      console.log("Initializing contract with address:", address);
+      setLoadingStats(true);
+      
+      // Get task counts
+      let totalTasks = 0;
+      let createdTasks = 0;
+      let assignedTasks = 0;
+      let completedTasks = 0;
+      let totalFunding = 0n;
 
-      // Configure client with wallet credentials
-      taskMasterService.configureWallet(address, signTransaction);
+      try {
+        const created = await taskMasterService.getUserTasks(address);
+        createdTasks = created.length;
+        
+        // Get funding amounts for created tasks
+        for (const taskId of created) {
+          const task = await taskMasterService.getTask(taskId);
+          if (task) {
+            totalFunding += task.funding_amount;
+            if (task.status === TaskStatus.Completed || task.status === TaskStatus.Approved || task.status === TaskStatus.FundsReleased) {
+              completedTasks++;
+            }
+          }
+        }
+      } catch {
+        console.error("Error loading created tasks");
+      }
+
+      try {
+        const assigned = await taskMasterService.getAssignedTasks(address);
+        assignedTasks = assigned.length;
+      } catch {
+        console.error("Error loading assigned tasks");
+      }
+
+      try {
+        const totalCount = await taskMasterService.getTaskCount();
+        totalTasks = totalCount;
+      } catch {
+        console.error("Error loading total task count");
+      }
+
+      setStats({
+        totalTasks,
+        createdTasks,
+        assignedTasks,
+        completedTasks,
+        totalFunding,
+      });
+    } catch {
+      console.error("Error loading dashboard stats");
+    } finally {
+      setLoadingStats(false);
+    }
+  }, [address]);
+
+  const initializeContract = useCallback(async () => {
+    if (!address) return;
+
+    try {
+      // Configure client with wallet credentials - with proper check
+      if (signTransaction) {
+        taskMasterService.configureWallet(address, signTransaction);
+      } else {
+        console.error("No signTransaction function available");
+        alert("Wallet not properly connected. Please reconnect your wallet.");
+        return;
+      }
 
       // First check if contract is already initialized by getting task count
       try {
@@ -59,32 +138,25 @@ const Dashboard: React.FC = () => {
         console.log("Contract is already initialized");
         return;
       } catch (error) {
-        // If we can't get task count, contract might not be initialized
-        console.log(
-          "Contract might not be initialized, attempting initialization..."
-        );
+        console.log("Contract might not be initialized, attempting initialization...");
       }
 
-      // Initialize the contract with native token and deployer address
       await taskMasterService.initialize();
-
       console.log("Contract initialized successfully");
     } catch (error) {
       console.error("Error initializing contract:", error);
-      // Check if it's already initialized
       if (error instanceof Error && error.message.includes("AlreadyExists")) {
         console.log("Contract already initialized");
       } else {
         console.error("Contract initialization failed:", error);
       }
     }
-  };
+  }, [address, signTransaction]);
 
   const handleTaskCreated = () => {
-    // Switch to tasks tab to show the newly created task
     setActiveTab("tasks");
     setTaskFilter("created");
-    // In a real app, you might want to refresh the task list
+    void loadDashboardStats(); // Refresh stats
     window.location.reload();
   };
 
@@ -92,16 +164,19 @@ const Dashboard: React.FC = () => {
     if (!address) return;
 
     try {
-      // Configure client with wallet credentials
-      taskMasterService.configureWallet(address, signTransaction);
-
-      const tx = await taskMasterService.withdrawPlatformFees(address);
-
-      const { result } = await tx.signAndSend();
+      // Configure client with wallet credentials - with proper check
+      if (signTransaction) {
+        taskMasterService.configureWallet(address, signTransaction);
+      } else {
+        console.error("No signTransaction function available");
+        alert("Wallet not properly connected. Please reconnect your wallet.");
+        return;
+      }
+      const result = await taskMasterService.withdrawPlatformFees(address);
 
       if (result) {
         alert("Platform fees withdrawn successfully!");
-        loadPlatformFees(); // Refresh the fees display
+        void loadPlatformFees();
       }
     } catch (error) {
       console.error("Error withdrawing platform fees:", error);
@@ -109,177 +184,348 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  React.useEffect(() => {
-    // Initialize dashboard state from URL query parameters
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get("tab");
     const filterParam = params.get("filter");
     if (tabParam === "create") setActiveTab("create");
+    else if (tabParam === "tasks") setActiveTab("tasks");
     if (filterParam === "created" || filterParam === "assigned")
       setTaskFilter(filterParam);
   }, []);
 
-  React.useEffect(() => {
-    if (address) {
-      // First initialize the contract, then load platform fees
-      initializeContract().then(() => {
-        loadPlatformFees();
+  useEffect(() => {
+    console.log("Dashboard useEffect triggered - address:", address);
+    if (address && !getIsInitialized()) {
+      console.log("Initializing contract and loading data...");
+      void initializeContract().then(() => {
+        void loadPlatformFees();
+        void loadDashboardStats();
+        // Mark as initialized after successful initialization
+        setIsInitialized(true);
+      }).catch((error) => {
+        console.error("Contract initialization failed:", error);
+        // Still mark as initialized attempt to prevent repeated attempts
+        setIsInitialized(true);
       });
     }
+  }, [address]); // Only depend on address, not on callback functions
+
+  // Reset initialization flag when address changes
+  useEffect(() => {
+    return () => {
+      if (address) {
+        const key = `contract_initialized_${address}`;
+        localStorage.removeItem(key);
+      }
+    };
   }, [address]);
+
+  useEffect(() => {
+    console.log("Modal check - address:", address, "userProfile:", userProfile, "isProfileLoading:", isProfileLoading);
+    // Show modal if we have an address but no profile AND we're not currently loading
+    if (address && !userProfile && !isProfileLoading) {
+      console.log("Showing registration modal - no profile found");
+      setShowRegistrationModal(true);
+    } else if (userProfile) {
+      console.log("Hiding registration modal - profile exists:", userProfile.username);
+      setShowRegistrationModal(false);
+    }
+  }, [address, userProfile, isProfileLoading]);
 
   if (!address) {
     return (
-      <Card>
-        <div style={{ padding: "2rem", textAlign: "center" }}>
-          <Heading as="h2" size="lg">
-            TaskMaster Dashboard
-          </Heading>
-          <Text as="p" size="md" style={{ marginTop: "1rem" }}>
-            Please connect your wallet to access the TaskMaster dashboard.
-          </Text>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-md w-full mx-4 bg-white rounded-lg shadow p-6">
+          <div className="p-6 text-center">
+            <Heading as="h2" size="lg" className="mb-4">
+              TaskMaster Dashboard
+            </Heading>
+            <Text as="p" size="md" className="text-gray-600">
+              Please connect your wallet to access the TaskMaster dashboard.
+            </Text>
+          </div>
         </div>
-      </Card>
+      </div>
     );
   }
 
+  const formatAmount = (amount: bigint) => {
+    return (Number(amount) / 10000000).toFixed(7);
+  };
+
+  const StatCard = ({ title, value, subtitle, isLoading }: { 
+    title: string; 
+    value: string | number; 
+    subtitle?: string;
+    isLoading?: boolean;
+  }) => (
+    <div className="bg-white rounded-lg shadow p-4">
+      <Text as="p" size="sm" className="text-gray-600 mb-1">{title}</Text>
+      {isLoading ? (
+        <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
+      ) : (
+        <>
+          <Text as="p" size="xl" className="font-bold text-gray-900">{value}</Text>
+          {subtitle && <Text as="p" size="sm" className="text-gray-500">{subtitle}</Text>}
+        </>
+      )}
+    </div>
+  );
+
   return (
-    <div className="container stack-6">
-      <Card>
-        <div style={{ padding: "var(--space-6)" }}>
-          <Heading as="h1" size="xl">
-            TaskMaster Dashboard
-          </Heading>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-              gap: "var(--space-4)",
-              marginTop: "var(--space-6)",
-            }}
-          >
-            <div style={{ textAlign: "center" }}>
-              <Text as="p" size="sm">
-                Platform Fees
-              </Text>
-              <Text as="p" size="lg" style={{ fontWeight: "bold" }}>
-                {loadingFees
-                  ? "Loading..."
-                  : (Number(platformFees) / 10000000).toFixed(7)}{" "}
-                XLM
-              </Text>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={handleWithdrawFees}
-                disabled={loadingFees || platformFees === 0n}
-                style={{ marginTop: "var(--space-2)" }}
-              >
-                Withdraw Fees
-              </Button>
-            </div>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="py-6">
+            <Heading as="h1" size="xl" className="text-gray-900">
+              TaskMaster Dashboard
+            </Heading>
+            <Text as="p" size="md" className="text-gray-600 mt-2">
+              Manage your tasks and bounties on the Stellar network
+            </Text>
           </div>
-        </div>
-      </Card>
-
-      <div
-        style={{
-          borderBottom:
-            "1px solid color-mix(in oklab, var(--color-ink), white 88%)",
-          marginBottom: "var(--space-4)",
-        }}
-      >
-        <div style={{ display: "flex", gap: 0 }}>
-          <Button
-            variant={activeTab === "tasks" ? "primary" : "tertiary"}
-            onClick={() => setActiveTab("tasks")}
-            size="md"
-            style={{ borderRadius: "var(--radius-md) var(--radius-md) 0 0" }}
-          >
-            Tasks
-          </Button>
-          <Button
-            variant={activeTab === "create" ? "primary" : "tertiary"}
-            onClick={() => setActiveTab("create")}
-            size="md"
-            style={{ borderRadius: "var(--radius-md) var(--radius-md) 0 0" }}
-          >
-            Create Task
-          </Button>
         </div>
       </div>
 
-      {activeTab === "tasks" && !taskId && (
-        <div>
-          <div
-            style={{
-              display: "flex",
-              gap: "var(--space-2)",
-              marginBottom: "var(--space-4)",
-            }}
-          >
-            <Button
-              size="sm"
-              variant={taskFilter === "all" ? "primary" : "tertiary"}
-              onClick={() => {
-                setTaskFilter("all");
-                const params = new URLSearchParams(window.location.search);
-                params.delete("filter");
-                navigate(
-                  { pathname: "/taskmaster", search: params.toString() },
-                  { replace: true }
-                );
-              }}
+      {/* Navigation Tabs */}
+      <div className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex space-x-8">
+            <button
+              onClick={() => setActiveTab("overview")}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "overview"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
             >
-              All Tasks
-            </Button>
-            <Button
-              size="sm"
-              variant={taskFilter === "created" ? "primary" : "tertiary"}
-              onClick={() => {
-                setTaskFilter("created");
-                const params = new URLSearchParams(window.location.search);
-                params.set("filter", "created");
-                navigate(
-                  { pathname: "/taskmaster", search: params.toString() },
-                  { replace: true }
-                );
-              }}
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab("tasks")}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "tasks"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
             >
-              Created
-            </Button>
-            <Button
-              size="sm"
-              variant={taskFilter === "assigned" ? "primary" : "tertiary"}
-              onClick={() => {
-                setTaskFilter("assigned");
-                const params = new URLSearchParams(window.location.search);
-                params.set("filter", "assigned");
-                navigate(
-                  { pathname: "/taskmaster", search: params.toString() },
-                  { replace: true }
-                );
-              }}
+              Tasks
+            </button>
+            <button
+              onClick={() => setActiveTab("create")}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "create"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
             >
-              Assigned
-            </Button>
+              Create Task
+            </button>
+            {!userProfile && (
+              <button
+                onClick={() => setShowRegistrationModal(true)}
+                className="py-4 px-1 border-b-2 font-medium text-sm border-transparent text-orange-500 hover:text-orange-600"
+              >
+                Register Username
+              </button>
+            )}
           </div>
-
-          <TaskList filter={taskFilter} />
         </div>
-      )}
+      </div>
 
-      {activeTab === "create" && !taskId && (
-        <div style={{ marginTop: "var(--space-4)" }}>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Overview Tab */}
+        {activeTab === "overview" && !taskId && (
+          <div className="space-y-6">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <StatCard 
+                title="Total Tasks" 
+                value={stats.totalTasks} 
+                isLoading={loadingStats}
+              />
+              <StatCard 
+                title="Created by You" 
+                value={stats.createdTasks} 
+                isLoading={loadingStats}
+              />
+              <StatCard 
+                title="Assigned to You" 
+                value={stats.assignedTasks} 
+                isLoading={loadingStats}
+              />
+              <StatCard 
+                title="Completed" 
+                value={stats.completedTasks} 
+                isLoading={loadingStats}
+              />
+            </div>
+
+            {/* Platform Fees and Funding */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white rounded-lg shadow p-6">
+                <Heading as="h3" size="md" className="mb-4">Platform Fees</Heading>
+                <div className="space-y-4">
+                  <div>
+                    <Text as="p" size="sm" className="text-gray-600">Available Fees</Text>
+                    {loadingFees ? (
+                      <div className="h-8 bg-gray-200 rounded animate-pulse mt-1"></div>
+                    ) : (
+                      <Text as="p" size="lg" className="font-bold">
+                        {formatAmount(platformFees)} XLM
+                      </Text>
+                    )}
+                  </div>
+                  <Button
+                    variant="secondary"
+                    onClick={() => void handleWithdrawFees()}
+                    disabled={loadingFees || platformFees === 0n}
+                    size="sm"
+                  >
+                    Withdraw Fees
+                  </Button>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-6">
+                <Heading as="h3" size="md" className="mb-4">Total Funding</Heading>
+                <div>
+                  <Text as="p" size="sm" className="text-gray-600">Your Created Tasks</Text>
+                  {loadingStats ? (
+                    <div className="h-8 bg-gray-200 rounded animate-pulse mt-1"></div>
+                  ) : (
+                    <Text as="p" size="lg" className="font-bold">
+                      {formatAmount(stats.totalFunding)} XLM
+                    </Text>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <Heading as="h3" size="md" className="mb-4">Quick Actions</Heading>
+              <div className="flex flex-wrap gap-3">
+                <Button onClick={() => setActiveTab("create")} variant="primary" size="md">
+                  Create New Task
+                </Button>
+                <Button variant="secondary" onClick={() => setActiveTab("tasks")} size="md">
+                  View All Tasks
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setActiveTab("tasks");
+                    setTaskFilter("created");
+                  }}
+                  size="md"
+                >
+                  My Created Tasks
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setActiveTab("tasks");
+                    setTaskFilter("assigned");
+                  }}
+                  size="md"
+                >
+                  My Assigned Tasks
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tasks Tab */}
+        {activeTab === "tasks" && !taskId && (
+          <div>
+            {/* Filter Pills */}
+            <div className="mb-6">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => {
+                    setTaskFilter("all");
+                    const params = new URLSearchParams(window.location.search);
+                    params.delete("filter");
+                    navigate(
+                      { pathname: "/taskmaster", search: params.toString() },
+                      { replace: true }
+                    );
+                  }}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    taskFilter === "all"
+                      ? "bg-blue-100 text-blue-700"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  All Tasks
+                </button>
+                <button
+                  onClick={() => {
+                    setTaskFilter("created");
+                    const params = new URLSearchParams(window.location.search);
+                    params.set("filter", "created");
+                    navigate(
+                      { pathname: "/taskmaster", search: params.toString() },
+                      { replace: true }
+                    );
+                  }}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    taskFilter === "created"
+                      ? "bg-blue-100 text-blue-700"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  Created by You
+                </button>
+                <button
+                  onClick={() => {
+                    setTaskFilter("assigned");
+                    const params = new URLSearchParams(window.location.search);
+                    params.set("filter", "assigned");
+                    navigate(
+                      { pathname: "/taskmaster", search: params.toString() },
+                      { replace: true }
+                    );
+                  }}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    taskFilter === "assigned"
+                      ? "bg-blue-100 text-blue-700"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  Assigned to You
+                </button>
+              </div>
+            </div>
+
+            <TaskList filter={taskFilter} />
+          </div>
+        )}
+
+        {/* Create Task Tab */}
+        {activeTab === "create" && !taskId && (
           <TaskCreationForm onTaskCreated={handleTaskCreated} />
-        </div>
-      )}
+        )}
 
-      {taskId && (
-        <div style={{ marginTop: "var(--space-4)" }}>
-          <TaskDetails />
-        </div>
+        {/* Task Details */}
+        {taskId && (
+          <div className="mt-4">
+            <TaskDetails />
+          </div>
+        )}
+      </div>
+
+      {/* Registration Modal */}
+      {showRegistrationModal && (
+        <UsernameRegistrationModal
+          isOpen={showRegistrationModal}
+          onClose={() => setShowRegistrationModal(false)}
+        />
       )}
     </div>
   );

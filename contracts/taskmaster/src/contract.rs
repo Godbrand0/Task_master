@@ -22,6 +22,25 @@ pub enum TaskStatus {
     Cancelled,     // Task cancelled by creator
 }
 
+// User profile structure
+#[contracttype]
+#[derive(Clone)]
+pub struct UserProfile {
+    pub address: Address,           // User's wallet address
+    pub username: String,          // User's chosen username (permanent)
+    pub created_at: u64,          // Profile creation timestamp
+}
+
+// Task application structure
+#[contracttype]
+#[derive(Clone)]
+pub struct TaskApplication {
+    pub applicant: Address,         // Applicant's wallet address
+    pub username: String,           // Applicant's username
+    pub applied_at: u64,           // Application timestamp
+    pub message: String,            // Optional application message
+}
+
 // Task structure with all necessary fields
 #[contracttype]
 #[derive(Clone)]
@@ -39,6 +58,7 @@ pub struct Task {
     pub completed_at: Option<u64>,  // Completion timestamp
     pub creator_approved: bool,     // Creator's approval flag
     pub assignee_approved: bool,    // Assignee's completion flag
+    pub applications: Vec<TaskApplication>, // List of applications
 }
 
 // Storage keys for contract state
@@ -49,6 +69,7 @@ const TASK_COUNTER: Symbol = symbol_short!("TSK_CNTR");
 const TOKEN: Symbol = symbol_short!("TOKEN");
 const DEPLOYER: Symbol = symbol_short!("DEPLOYER");
 const PLATFORM_FEES: Symbol = symbol_short!("PLT_FEES");
+const USER_PROFILES: Symbol = symbol_short!("USR_PROF");
 
 // Platform fee percentage (3% = 3/100)
 const PLATFORM_FEE_PERCENTAGE: u32 = 3;
@@ -83,7 +104,200 @@ impl TaskMaster {
         env.storage().instance().set(&PLATFORM_FEES, &0i128);
     }
 
-    /// Create a new task with funding
+    /// Register a user profile with a permanent username
+    ///
+    /// # Arguments
+    /// * `user` - Address of the user
+    /// * `username` - Permanent username for the user
+    pub fn register_user(env: Env, user: Address, username: String) {
+        user.require_auth();
+
+        // Check if user already has a profile
+        if env.storage().instance().has(&user) {
+            panic!("User already registered");
+        }
+
+        // Check if username is already taken
+        let user_profiles: Map<Address, UserProfile> = env
+            .storage()
+            .instance()
+            .get(&USER_PROFILES)
+            .unwrap_or(Map::new(&env));
+        
+        // Check all existing profiles for username uniqueness
+        for (_, profile) in user_profiles.iter() {
+            if profile.username == username {
+                panic!("Username already taken");
+            }
+        }
+
+        // Create new user profile
+        let profile = UserProfile {
+            address: user.clone(),
+            username: username.clone(),
+            created_at: env.ledger().timestamp(),
+        };
+
+        // Store profile
+        let mut profiles = env
+            .storage()
+            .instance()
+            .get(&USER_PROFILES)
+            .unwrap_or(Map::new(&env));
+        profiles.set(user.clone(), profile);
+        env.storage().instance().set(&USER_PROFILES, &profiles);
+
+        // Also store by address for quick lookup
+        env.storage().instance().set(&user, &username);
+    }
+
+    /// Get user profile by address
+    ///
+    /// # Arguments
+    /// * `user` - Address of the user
+    ///
+    /// # Returns
+    /// The user profile if exists
+    pub fn get_user_profile(env: Env, user: Address) -> Option<UserProfile> {
+        let user_profiles: Map<Address, UserProfile> = env
+            .storage()
+            .instance()
+            .get(&USER_PROFILES)
+            .unwrap_or(Map::new(&env));
+        user_profiles.get(user)
+    }
+
+    /// Apply for a task
+    ///
+    /// # Arguments
+    /// * `applicant` - Address of the applicant
+    /// * `task_id` - ID of the task to apply for
+    /// * `message` - Optional application message
+    pub fn apply_for_task(env: Env, applicant: Address, task_id: u64, message: String) {
+        applicant.require_auth();
+
+        // Get user profile to ensure user is registered
+        let user_profiles: Map<Address, UserProfile> = env
+            .storage()
+            .instance()
+            .get(&USER_PROFILES)
+            .unwrap_or(Map::new(&env));
+        let profile = user_profiles.get(applicant.clone())
+            .unwrap_or_else(|| panic!("User must register a username before applying for tasks"));
+
+        let mut tasks: Map<u64, Task> = env
+            .storage()
+            .instance()
+            .get(&TASKS)
+            .unwrap_or(Map::new(&env));
+        let mut task = tasks
+            .get(task_id)
+            .unwrap_or_else(|| panic!("Task not found"));
+
+        // Check if task is in Created state (accepting applications)
+        Self::require_valid_state(&task, &[TaskStatus::Created]);
+
+        // Check if user already applied
+        for application in task.applications.iter() {
+            if application.applicant == applicant {
+                panic!("Already applied for this task");
+            }
+        }
+
+        // Create new application
+        let application = TaskApplication {
+            applicant: applicant.clone(),
+            username: profile.username.clone(),
+            applied_at: env.ledger().timestamp(),
+            message: message.clone(),
+        };
+
+        // Add application to task
+        task.applications.push_back(application);
+
+        // Store updated task
+        tasks.set(task_id, task);
+        env.storage().instance().set(&TASKS, &tasks);
+    }
+
+    /// Get all applications for a task
+    ///
+    /// # Arguments
+    /// * `task_id` - ID of the task
+    ///
+    /// # Returns
+    /// Vector of all applications for the task
+    pub fn get_task_applications(env: Env, task_id: u64) -> Vec<TaskApplication> {
+        let tasks: Map<u64, Task> = env
+            .storage()
+            .instance()
+            .get(&TASKS)
+            .unwrap_or(Map::new(&env));
+        let task = tasks
+            .get(task_id)
+            .unwrap_or_else(|| panic!("Task not found"));
+        task.applications
+    }
+
+    /// Assign a task to an applicant
+    ///
+    /// # Arguments
+    /// * `creator` - Address of the task creator
+    /// * `task_id` - ID of the task
+    /// * `applicant` - Address of the applicant to assign
+    pub fn assign_to_applicant(env: Env, creator: Address, task_id: u64, applicant: Address) {
+        creator.require_auth();
+
+        let mut tasks: Map<u64, Task> = env
+            .storage()
+            .instance()
+            .get(&TASKS)
+            .unwrap_or(Map::new(&env));
+        let mut task = tasks
+            .get(task_id)
+            .unwrap_or_else(|| panic!("Task not found"));
+
+        // Check if caller is the creator
+        Self::require_creator(&creator, &task);
+
+        // Check if task is in Created state
+        Self::require_valid_state(&task, &[TaskStatus::Created]);
+
+        // Verify the applicant has actually applied
+        let mut found_application = false;
+        for application in task.applications.iter() {
+            if application.applicant == applicant {
+                found_application = true;
+                break;
+            }
+        }
+        if !found_application {
+            panic!("Applicant has not applied for this task");
+        }
+
+        // Update task with assignee and change status
+        task.assignee = Some(applicant.clone());
+        task.status = TaskStatus::Assigned;
+
+        // Store updated task
+        tasks.set(task_id, task.clone());
+        env.storage().instance().set(&TASKS, &tasks);
+
+        // Update assigned tasks mapping
+        let mut assigned_tasks: Map<Address, Vec<u64>> = env
+            .storage()
+            .instance()
+            .get(&ASSIGNED_TASKS)
+            .unwrap_or(Map::new(&env));
+        let mut assignee_tasks = assigned_tasks
+            .get(applicant.clone())
+            .unwrap_or(Vec::new(&env));
+        assignee_tasks.push_back(task_id);
+        assigned_tasks.set(applicant.clone(), assignee_tasks);
+        env.storage().instance().set(&ASSIGNED_TASKS, &assigned_tasks);
+    }
+
+    /// Create a new task with funding (without assigning)
     ///
     /// # Arguments
     /// * `creator` - Address of the task creator
@@ -92,7 +306,6 @@ impl TaskMaster {
     /// * `github_link` - GitHub repository link (can be empty string)
     /// * `funding_amount` - Amount to fund the task (in stroops)
     /// * `deadline` - Unix timestamp for the task deadline
-    /// * `assignee` - Address of the assigned user
     ///
     /// # Returns
     /// The ID of the newly created task
@@ -104,7 +317,6 @@ impl TaskMaster {
         github_link: String,
         funding_amount: i128,
         deadline: u64,
-        assignee: Address,
     ) -> u64 {
         // Validate inputs
         Self::validate_task_creation(&env, &title, &description, funding_amount, deadline);
@@ -131,7 +343,7 @@ impl TaskMaster {
             .get(&TOKEN)
             .expect("Token not initialized");
         let token_client = token::Client::new(&env, &token_address);
-        token_client.transfer(&creator, &token_address, &funding_amount);
+        token_client.transfer(&creator, &env.current_contract_address(), &funding_amount);
 
         // Create new task
         let task = Task {
@@ -142,12 +354,13 @@ impl TaskMaster {
             funding_amount,
             deadline,
             creator: creator.clone(),
-            assignee: Some(assignee.clone()),
-            status: TaskStatus::Assigned,
+            assignee: None, // Task starts unassigned
+            status: TaskStatus::Created,
             created_at: current_time,
             completed_at: None,
             creator_approved: false,
             assignee_approved: false,
+            applications: Vec::new(&env), // Initialize empty applications vector
         };
 
         // Store task
@@ -172,6 +385,41 @@ impl TaskMaster {
         user_tasks.set(creator.clone(), creator_tasks);
         env.storage().instance().set(&USER_TASKS, &user_tasks);
 
+        task_id
+    }
+
+    /// Assign a task to a user (only if not already assigned)
+    ///
+    /// # Arguments
+    /// * `creator` - Address of the task creator
+    /// * `task_id` - ID of the task to assign
+    /// * `assignee` - Address of the user to assign the task to
+    pub fn assign_task(env: Env, creator: Address, task_id: u64, assignee: Address) {
+        creator.require_auth();
+
+        let mut tasks: Map<u64, Task> = env
+            .storage()
+            .instance()
+            .get(&TASKS)
+            .unwrap_or(Map::new(&env));
+        let mut task = tasks
+            .get(task_id)
+            .unwrap_or_else(|| panic!("Task not found"));
+
+        // Check if caller is the creator
+        Self::require_creator(&creator, &task);
+
+        // Check if task is in Created state (not assigned yet)
+        Self::require_valid_state(&task, &[TaskStatus::Created]);
+
+        // Update task with assignee and change status
+        task.assignee = Some(assignee.clone());
+        task.status = TaskStatus::Assigned;
+
+        // Store updated task
+        tasks.set(task_id, task.clone());
+        env.storage().instance().set(&TASKS, &tasks);
+
         // Update assigned tasks mapping
         let mut assigned_tasks: Map<Address, Vec<u64>> = env
             .storage()
@@ -184,8 +432,6 @@ impl TaskMaster {
         assignee_tasks.push_back(task_id);
         assigned_tasks.set(assignee.clone(), assignee_tasks);
         env.storage().instance().set(&ASSIGNED_TASKS, &assigned_tasks);
-
-        task_id
     }
 
     /// Mark a task as complete by the assignee
@@ -356,7 +602,7 @@ impl TaskMaster {
         // Check if task is in valid state for cancellation
         Self::require_valid_state(
             &task,
-            &[TaskStatus::Assigned, TaskStatus::InProgress],
+            &[TaskStatus::Created, TaskStatus::Assigned, TaskStatus::InProgress],
         );
 
         // Update task status
@@ -403,6 +649,7 @@ impl TaskMaster {
         Self::require_valid_state(
             &task,
             &[
+                TaskStatus::Created,
                 TaskStatus::Assigned,
                 TaskStatus::InProgress,
             ],

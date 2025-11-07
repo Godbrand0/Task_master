@@ -11,11 +11,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier . --write",
-    "prepare": "husky",
-    "script:basic": "npx tsx scripts/basic-interaction.ts",
-    "script:task-test": "npx tsx scripts/task-management-test.ts",
-    "script:wallet": "npx tsx scripts/wallet-interaction.ts",
-    "script:verify": "npx tsx scripts/contract-verification.ts"
+    "prepare": "husky"
   },
   "workspaces": [
     "packages/*"
@@ -25,12 +21,15 @@
     "@stellar/design-system": "^3.1.5",
     "@stellar/stellar-sdk": "^14.2.0",
     "@stellar/stellar-xdr-json": "^23.0.0",
+    "@tailwindcss/postcss": "^4.1.17",
     "@tanstack/react-query": "^5.90.2",
     "bindings": "file:bindings",
     "lossless-json": "^4.2.0",
+    "postcss": "^8.5.6",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.9.3",
+    "tailwindcss": "^4.1.17",
     "zod": "^4.1.11"
   },
   "devDependencies": {

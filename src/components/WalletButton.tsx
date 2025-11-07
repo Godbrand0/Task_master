@@ -7,7 +7,7 @@ import { connectWallet, disconnectWallet } from "../util/wallet";
 export const WalletButton = () => {
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
   const { address, isPending } = useWallet();
-  const { xlm, ...balance } = useWalletBalance();
+  const { xlm } = useWalletBalance();
   const buttonLabel = isPending ? "Loading..." : "Connect";
 
   if (!address) {
@@ -19,15 +19,7 @@ export const WalletButton = () => {
   }
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "row",
-        alignItems: "center",
-        gap: "5px",
-        opacity: balance.isLoading ? 0.6 : 1,
-      }}
-    >
+    <div className="flex flex-row items-center gap-1.25 opacity-60">
       <Text as="div" size="sm">
         Wallet Balance: {xlm} XLM
       </Text>
@@ -40,7 +32,7 @@ export const WalletButton = () => {
         >
           <Modal.Heading>
             Connected as{" "}
-            <code style={{ lineBreak: "anywhere" }}>{address}</code>. Do you
+            <code className="break-anywhere">{address}</code>. Do you
             want to disconnect?
           </Modal.Heading>
           <Modal.Footer itemAlignment="stack">

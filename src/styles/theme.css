@@ -43,8 +43,14 @@
   --bp-xl: 1280px;
 }
 
-html,
-body,
+html {
+  height: 100%;
+}
+
+body {
+  min-height: 100%;
+}
+
 #root {
   height: 100%;
 }
@@ -75,6 +81,7 @@ body {
   max-width: 1120px;
   margin: 0 auto;
   padding: var(--space-6);
+  overflow-y: auto;
 }
 
 .stack-2 > * + * { margin-top: var(--space-2); }

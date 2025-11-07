@@ -34,30 +34,14 @@ if (typeof window !== 'undefined') {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CCHOWDIQIHI6OV5JUXW5FKGDSINSYO665A66BHPZE5DSH4JF75IE46S3",
+    contractId: "CCERJXGUU6KOUQ5JTHFEEVSALW4BIUY54SV3JUWJJIDFRYKOTHE77ICZ",
   }
 } as const
 
 export type TaskStatus = {tag: "Created", values: void} | {tag: "Assigned", values: void} | {tag: "InProgress", values: void} | {tag: "Completed", values: void} | {tag: "Approved", values: void} | {tag: "FundsReleased", values: void} | {tag: "Expired", values: void} | {tag: "Cancelled", values: void};
 
 
-export interface UserProfile {
-  address: string;
-  created_at: u64;
-  username: string;
-}
-
-
-export interface TaskApplication {
-  applicant: string;
-  applied_at: u64;
-  message: string;
-  username: string;
-}
-
-
 export interface Task {
-  applications: Array<TaskApplication>;
   assignee: Option<string>;
   assignee_approved: boolean;
   completed_at: Option<u64>;
@@ -100,139 +84,8 @@ export interface Client {
   }) => Promise<AssembledTransaction<null>>
 
   /**
-   * Construct and simulate a register_user transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * Register a user profile with a permanent username
-   * 
-   * # Arguments
-   * * `user` - Address of the user
-   * * `username` - Permanent username for the user
-   */
-  register_user: ({user, username}: {user: string, username: string}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<null>>
-
-  /**
-   * Construct and simulate a get_user_profile transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * Get user profile by address
-   * 
-   * # Arguments
-   * * `user` - Address of the user
-   * 
-   * # Returns
-   * The user profile if exists
-   */
-  get_user_profile: ({user}: {user: string}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<Option<UserProfile>>>
-
-  /**
-   * Construct and simulate a apply_for_task transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * Apply for a task
-   * 
-   * # Arguments
-   * * `applicant` - Address of the applicant
-   * * `task_id` - ID of the task to apply for
-   * * `message` - Optional application message
-   */
-  apply_for_task: ({applicant, task_id, message}: {applicant: string, task_id: u64, message: string}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<null>>
-
-  /**
-   * Construct and simulate a get_task_applications transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * Get all applications for a task
-   * 
-   * # Arguments
-   * * `task_id` - ID of the task
-   * 
-   * # Returns
-   * Vector of all applications for the task
-   */
-  get_task_applications: ({task_id}: {task_id: u64}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<Array<TaskApplication>>>
-
-  /**
-   * Construct and simulate a assign_to_applicant transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * Assign a task to an applicant
-   * 
-   * # Arguments
-   * * `creator` - Address of the task creator
-   * * `task_id` - ID of the task
-   * * `applicant` - Address of the applicant to assign
-   */
-  assign_to_applicant: ({creator, task_id, applicant}: {creator: string, task_id: u64, applicant: string}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<null>>
-
-  /**
    * Construct and simulate a create_task transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * Create a new task with funding (without assigning)
+   * Create a new task with funding
    * 
    * # Arguments
    * * `creator` - Address of the task creator
@@ -241,11 +94,12 @@ export interface Client {
    * * `github_link` - GitHub repository link (can be empty string)
    * * `funding_amount` - Amount to fund the task (in stroops)
    * * `deadline` - Unix timestamp for the task deadline
+   * * `assignee` - Address of the assigned user
    * 
    * # Returns
    * The ID of the newly created task
    */
-  create_task: ({creator, title, description, github_link, funding_amount, deadline}: {creator: string, title: string, description: string, github_link: string, funding_amount: i128, deadline: u64}, options?: {
+  create_task: ({creator, title, description, github_link, funding_amount, deadline, assignee}: {creator: string, title: string, description: string, github_link: string, funding_amount: i128, deadline: u64, assignee: string}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -261,32 +115,6 @@ export interface Client {
      */
     simulate?: boolean;
   }) => Promise<AssembledTransaction<u64>>
-
-  /**
-   * Construct and simulate a assign_task transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * Assign a task to a user (only if not already assigned)
-   * 
-   * # Arguments
-   * * `creator` - Address of the task creator
-   * * `task_id` - ID of the task to assign
-   * * `assignee` - Address of the user to assign the task to
-   */
-  assign_task: ({creator, task_id, assignee}: {creator: string, task_id: u64, assignee: string}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<null>>
 
   /**
    * Construct and simulate a complete_task transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -632,17 +460,9 @@ export class Client extends ContractClient {
   constructor(public readonly options: ContractClientOptions) {
     super(
       new ContractSpec([ "AAAAAgAAAAAAAAAAAAAAClRhc2tTdGF0dXMAAAAAAAgAAAAAAAAAAAAAAAdDcmVhdGVkAAAAAAAAAAAAAAAACEFzc2lnbmVkAAAAAAAAAAAAAAAKSW5Qcm9ncmVzcwAAAAAAAAAAAAAAAAAJQ29tcGxldGVkAAAAAAAAAAAAAAAAAAAIQXBwcm92ZWQAAAAAAAAAAAAAAA1GdW5kc1JlbGVhc2VkAAAAAAAAAAAAAAAAAAAHRXhwaXJlZAAAAAAAAAAAAAAAAAlDYW5jZWxsZWQAAAA=",
-        "AAAAAQAAAAAAAAAAAAAAC1VzZXJQcm9maWxlAAAAAAMAAAAAAAAAB2FkZHJlc3MAAAAAEwAAAAAAAAAKY3JlYXRlZF9hdAAAAAAABgAAAAAAAAAIdXNlcm5hbWUAAAAQ",
-        "AAAAAQAAAAAAAAAAAAAAD1Rhc2tBcHBsaWNhdGlvbgAAAAAEAAAAAAAAAAlhcHBsaWNhbnQAAAAAAAATAAAAAAAAAAphcHBsaWVkX2F0AAAAAAAGAAAAAAAAAAdtZXNzYWdlAAAAABAAAAAAAAAACHVzZXJuYW1lAAAAEA==",
-        "AAAAAQAAAAAAAAAAAAAABFRhc2sAAAAOAAAAAAAAAAxhcHBsaWNhdGlvbnMAAAPqAAAH0AAAAA9UYXNrQXBwbGljYXRpb24AAAAAAAAAAAhhc3NpZ25lZQAAA+gAAAATAAAAAAAAABFhc3NpZ25lZV9hcHByb3ZlZAAAAAAAAAEAAAAAAAAADGNvbXBsZXRlZF9hdAAAA+gAAAAGAAAAAAAAAApjcmVhdGVkX2F0AAAAAAAGAAAAAAAAAAdjcmVhdG9yAAAAABMAAAAAAAAAEGNyZWF0b3JfYXBwcm92ZWQAAAABAAAAAAAAAAhkZWFkbGluZQAAAAYAAAAAAAAAC2Rlc2NyaXB0aW9uAAAAABAAAAAAAAAADmZ1bmRpbmdfYW1vdW50AAAAAAALAAAAAAAAAAtnaXRodWJfbGluawAAAAAQAAAAAAAAAAJpZAAAAAAABgAAAAAAAAAGc3RhdHVzAAAAAAfQAAAAClRhc2tTdGF0dXMAAAAAAAAAAAAFdGl0bGUAAAAAAAAQ",
+        "AAAAAQAAAAAAAAAAAAAABFRhc2sAAAANAAAAAAAAAAhhc3NpZ25lZQAAA+gAAAATAAAAAAAAABFhc3NpZ25lZV9hcHByb3ZlZAAAAAAAAAEAAAAAAAAADGNvbXBsZXRlZF9hdAAAA+gAAAAGAAAAAAAAAApjcmVhdGVkX2F0AAAAAAAGAAAAAAAAAAdjcmVhdG9yAAAAABMAAAAAAAAAEGNyZWF0b3JfYXBwcm92ZWQAAAABAAAAAAAAAAhkZWFkbGluZQAAAAYAAAAAAAAAC2Rlc2NyaXB0aW9uAAAAABAAAAAAAAAADmZ1bmRpbmdfYW1vdW50AAAAAAALAAAAAAAAAAtnaXRodWJfbGluawAAAAAQAAAAAAAAAAJpZAAAAAAABgAAAAAAAAAGc3RhdHVzAAAAAAfQAAAAClRhc2tTdGF0dXMAAAAAAAAAAAAFdGl0bGUAAAAAAAAQ",
         "AAAAAAAAAL1Jbml0aWFsaXplIHRoZSBjb250cmFjdCB3aXRoIHRva2VuIGFkZHJlc3MKCiMgQXJndW1lbnRzCiogYHRva2VuYCAtIEFkZHJlc3Mgb2YgdGhlIHRva2VuIGNvbnRyYWN0IGZvciBwYXltZW50cwoqIGBkZXBsb3llcmAgLSBBZGRyZXNzIG9mIHRoZSBjb250cmFjdCBkZXBsb3llciB3aG8gd2lsbCByZWNlaXZlIHBsYXRmb3JtIGZlZXMAAAAAAAAKaW5pdGlhbGl6ZQAAAAAAAgAAAAAAAAAFdG9rZW4AAAAAAAATAAAAAAAAAAhkZXBsb3llcgAAABMAAAAA",
-        "AAAAAAAAAIxSZWdpc3RlciBhIHVzZXIgcHJvZmlsZSB3aXRoIGEgcGVybWFuZW50IHVzZXJuYW1lCgojIEFyZ3VtZW50cwoqIGB1c2VyYCAtIEFkZHJlc3Mgb2YgdGhlIHVzZXIKKiBgdXNlcm5hbWVgIC0gUGVybWFuZW50IHVzZXJuYW1lIGZvciB0aGUgdXNlcgAAAA1yZWdpc3Rlcl91c2VyAAAAAAAAAgAAAAAAAAAEdXNlcgAAABMAAAAAAAAACHVzZXJuYW1lAAAAEAAAAAA=",
-        "AAAAAAAAAG1HZXQgdXNlciBwcm9maWxlIGJ5IGFkZHJlc3MKCiMgQXJndW1lbnRzCiogYHVzZXJgIC0gQWRkcmVzcyBvZiB0aGUgdXNlcgoKIyBSZXR1cm5zClRoZSB1c2VyIHByb2ZpbGUgaWYgZXhpc3RzAAAAAAAAEGdldF91c2VyX3Byb2ZpbGUAAAABAAAAAAAAAAR1c2VyAAAAEwAAAAEAAAPoAAAH0AAAAAtVc2VyUHJvZmlsZQA=",
-        "AAAAAAAAAJtBcHBseSBmb3IgYSB0YXNrCgojIEFyZ3VtZW50cwoqIGBhcHBsaWNhbnRgIC0gQWRkcmVzcyBvZiB0aGUgYXBwbGljYW50CiogYHRhc2tfaWRgIC0gSUQgb2YgdGhlIHRhc2sgdG8gYXBwbHkgZm9yCiogYG1lc3NhZ2VgIC0gT3B0aW9uYWwgYXBwbGljYXRpb24gbWVzc2FnZQAAAAAOYXBwbHlfZm9yX3Rhc2sAAAAAAAMAAAAAAAAACWFwcGxpY2FudAAAAAAAABMAAAAAAAAAB3Rhc2tfaWQAAAAABgAAAAAAAAAHbWVzc2FnZQAAAAAQAAAAAA==",
-        "AAAAAAAAAHxHZXQgYWxsIGFwcGxpY2F0aW9ucyBmb3IgYSB0YXNrCgojIEFyZ3VtZW50cwoqIGB0YXNrX2lkYCAtIElEIG9mIHRoZSB0YXNrCgojIFJldHVybnMKVmVjdG9yIG9mIGFsbCBhcHBsaWNhdGlvbnMgZm9yIHRoZSB0YXNrAAAAFWdldF90YXNrX2FwcGxpY2F0aW9ucwAAAAAAAAEAAAAAAAAAB3Rhc2tfaWQAAAAABgAAAAEAAAPqAAAH0AAAAA9UYXNrQXBwbGljYXRpb24A",
-        "AAAAAAAAAKRBc3NpZ24gYSB0YXNrIHRvIGFuIGFwcGxpY2FudAoKIyBBcmd1bWVudHMKKiBgY3JlYXRvcmAgLSBBZGRyZXNzIG9mIHRoZSB0YXNrIGNyZWF0b3IKKiBgdGFza19pZGAgLSBJRCBvZiB0aGUgdGFzawoqIGBhcHBsaWNhbnRgIC0gQWRkcmVzcyBvZiB0aGUgYXBwbGljYW50IHRvIGFzc2lnbgAAABNhc3NpZ25fdG9fYXBwbGljYW50AAAAAAMAAAAAAAAAB2NyZWF0b3IAAAAAEwAAAAAAAAAHdGFza19pZAAAAAAGAAAAAAAAAAlhcHBsaWNhbnQAAAAAAAATAAAAAA==",
-        "AAAAAAAAAYxDcmVhdGUgYSBuZXcgdGFzayB3aXRoIGZ1bmRpbmcgKHdpdGhvdXQgYXNzaWduaW5nKQoKIyBBcmd1bWVudHMKKiBgY3JlYXRvcmAgLSBBZGRyZXNzIG9mIHRoZSB0YXNrIGNyZWF0b3IKKiBgdGl0bGVgIC0gVGFzayB0aXRsZQoqIGBkZXNjcmlwdGlvbmAgLSBEZXRhaWxlZCBkZXNjcmlwdGlvbiBvZiB0aGUgdGFzawoqIGBnaXRodWJfbGlua2AgLSBHaXRIdWIgcmVwb3NpdG9yeSBsaW5rIChjYW4gYmUgZW1wdHkgc3RyaW5nKQoqIGBmdW5kaW5nX2Ftb3VudGAgLSBBbW91bnQgdG8gZnVuZCB0aGUgdGFzayAoaW4gc3Ryb29wcykKKiBgZGVhZGxpbmVgIC0gVW5peCB0aW1lc3RhbXAgZm9yIHRoZSB0YXNrIGRlYWRsaW5lCgojIFJldHVybnMKVGhlIElEIG9mIHRoZSBuZXdseSBjcmVhdGVkIHRhc2sAAAALY3JlYXRlX3Rhc2sAAAAABgAAAAAAAAAHY3JlYXRvcgAAAAATAAAAAAAAAAV0aXRsZQAAAAAAABAAAAAAAAAAC2Rlc2NyaXB0aW9uAAAAABAAAAAAAAAAC2dpdGh1Yl9saW5rAAAAABAAAAAAAAAADmZ1bmRpbmdfYW1vdW50AAAAAAALAAAAAAAAAAhkZWFkbGluZQAAAAYAAAABAAAABg==",
-        "AAAAAAAAAM1Bc3NpZ24gYSB0YXNrIHRvIGEgdXNlciAob25seSBpZiBub3QgYWxyZWFkeSBhc3NpZ25lZCkKCiMgQXJndW1lbnRzCiogYGNyZWF0b3JgIC0gQWRkcmVzcyBvZiB0aGUgdGFzayBjcmVhdG9yCiogYHRhc2tfaWRgIC0gSUQgb2YgdGhlIHRhc2sgdG8gYXNzaWduCiogYGFzc2lnbmVlYCAtIEFkZHJlc3Mgb2YgdGhlIHVzZXIgdG8gYXNzaWduIHRoZSB0YXNrIHRvAAAAAAAAC2Fzc2lnbl90YXNrAAAAAAMAAAAAAAAAB2NyZWF0b3IAAAAAEwAAAAAAAAAHdGFza19pZAAAAAAGAAAAAAAAAAhhc3NpZ25lZQAAABMAAAAA",
+        "AAAAAAAAAaRDcmVhdGUgYSBuZXcgdGFzayB3aXRoIGZ1bmRpbmcKCiMgQXJndW1lbnRzCiogYGNyZWF0b3JgIC0gQWRkcmVzcyBvZiB0aGUgdGFzayBjcmVhdG9yCiogYHRpdGxlYCAtIFRhc2sgdGl0bGUKKiBgZGVzY3JpcHRpb25gIC0gRGV0YWlsZWQgZGVzY3JpcHRpb24gb2YgdGhlIHRhc2sKKiBgZ2l0aHViX2xpbmtgIC0gR2l0SHViIHJlcG9zaXRvcnkgbGluayAoY2FuIGJlIGVtcHR5IHN0cmluZykKKiBgZnVuZGluZ19hbW91bnRgIC0gQW1vdW50IHRvIGZ1bmQgdGhlIHRhc2sgKGluIHN0cm9vcHMpCiogYGRlYWRsaW5lYCAtIFVuaXggdGltZXN0YW1wIGZvciB0aGUgdGFzayBkZWFkbGluZQoqIGBhc3NpZ25lZWAgLSBBZGRyZXNzIG9mIHRoZSBhc3NpZ25lZCB1c2VyCgojIFJldHVybnMKVGhlIElEIG9mIHRoZSBuZXdseSBjcmVhdGVkIHRhc2sAAAALY3JlYXRlX3Rhc2sAAAAABwAAAAAAAAAHY3JlYXRvcgAAAAATAAAAAAAAAAV0aXRsZQAAAAAAABAAAAAAAAAAC2Rlc2NyaXB0aW9uAAAAABAAAAAAAAAAC2dpdGh1Yl9saW5rAAAAABAAAAAAAAAADmZ1bmRpbmdfYW1vdW50AAAAAAALAAAAAAAAAAhkZWFkbGluZQAAAAYAAAAAAAAACGFzc2lnbmVlAAAAEwAAAAEAAAAG",
         "AAAAAAAAAIRNYXJrIGEgdGFzayBhcyBjb21wbGV0ZSBieSB0aGUgYXNzaWduZWUKCiMgQXJndW1lbnRzCiogYGFzc2lnbmVlYCAtIEFkZHJlc3Mgb2YgdGhlIGFzc2lnbmVlCiogYHRhc2tfaWRgIC0gSUQgb2YgdGhlIHRhc2sgdG8gY29tcGxldGUAAAANY29tcGxldGVfdGFzawAAAAAAAAIAAAAAAAAACGFzc2lnbmVlAAAAEwAAAAAAAAAHdGFza19pZAAAAAAGAAAAAA==",
         "AAAAAAAAAHpVcGRhdGUgdGFzayBzdGF0dXMgdG8gSW5Qcm9ncmVzcwoKIyBBcmd1bWVudHMKKiBgYXNzaWduZWVgIC0gQWRkcmVzcyBvZiB0aGUgYXNzaWduZWUKKiBgdGFza19pZGAgLSBJRCBvZiB0aGUgdGFzayB0byBzdGFydAAAAAAACnN0YXJ0X3Rhc2sAAAAAAAIAAAAAAAAACGFzc2lnbmVlAAAAEwAAAAAAAAAHdGFza19pZAAAAAAGAAAAAA==",
         "AAAAAAAAAJ1SZWxlYXNlIGZ1bmRzIHRvIHRoZSBhc3NpZ25lZSBhZnRlciBjcmVhdG9yIGFwcHJvdmFsCgojIEFyZ3VtZW50cwoqIGBjcmVhdG9yYCAtIEFkZHJlc3Mgb2YgdGhlIHRhc2sgY3JlYXRvcgoqIGB0YXNrX2lkYCAtIElEIG9mIHRoZSB0YXNrIHRvIHJlbGVhc2UgZnVuZHMgZm9yAAAAAAAADXJlbGVhc2VfZnVuZHMAAAAAAAACAAAAAAAAAAdjcmVhdG9yAAAAABMAAAAAAAAAB3Rhc2tfaWQAAAAABgAAAAA=",
@@ -661,13 +481,7 @@ export class Client extends ContractClient {
   }
   public readonly fromJSON = {
     initialize: this.txFromJSON<null>,
-        register_user: this.txFromJSON<null>,
-        get_user_profile: this.txFromJSON<Option<UserProfile>>,
-        apply_for_task: this.txFromJSON<null>,
-        get_task_applications: this.txFromJSON<Array<TaskApplication>>,
-        assign_to_applicant: this.txFromJSON<null>,
         create_task: this.txFromJSON<u64>,
-        assign_task: this.txFromJSON<null>,
         complete_task: this.txFromJSON<null>,
         start_task: this.txFromJSON<null>,
         release_funds: this.txFromJSON<null>,

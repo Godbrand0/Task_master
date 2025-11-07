@@ -8,6 +8,8 @@ import {
 } from "react";
 import { wallet } from "../util/wallet";
 import storage from "../util/storage";
+import { taskMasterService } from "../services/taskmaster";
+import { UserProfile } from "../types/user";
 
 export interface WalletContextType {
   address?: string;
@@ -15,15 +17,20 @@ export interface WalletContextType {
   networkPassphrase?: string;
   isPending: boolean;
   signTransaction?: typeof wallet.signTransaction;
+  userProfile?: UserProfile | null;
+  isProfileLoading?: boolean;
+  refreshUserProfile?: () => Promise<void>;
 }
 
 const initialState = {
   address: undefined,
   network: undefined,
   networkPassphrase: undefined,
+  userProfile: undefined,
+  isProfileLoading: false,
 };
 
-const POLL_INTERVAL = 1000;
+const POLL_INTERVAL = 10000; // Changed from 1 second to 10 seconds
 
 export const WalletContext = // eslint-disable-line react-refresh/only-export-components
   createContext<WalletContextType>({ isPending: true });
@@ -45,12 +52,36 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
   const updateState = (newState: Omit<WalletContextType, "isPending">) => {
     setState((prev: Omit<WalletContextType, "isPending">) => {
+      // Only update if something actually changed
       if (
         prev.address !== newState.address ||
         prev.network !== newState.network ||
-        prev.networkPassphrase !== newState.networkPassphrase
+        prev.networkPassphrase !== newState.networkPassphrase ||
+        prev.userProfile !== newState.userProfile
       ) {
         return newState;
+      }
+      return prev;
+    });
+  };
+
+  // Separate function to update only wallet connection state (not profile)
+  const updateWalletState = (walletState: {
+    address?: string;
+    network?: string;
+    networkPassphrase?: string;
+  }) => {
+    setState((prev: Omit<WalletContextType, "isPending">) => {
+      // Only update wallet fields, preserve userProfile
+      if (
+        prev.address !== walletState.address ||
+        prev.network !== walletState.network ||
+        prev.networkPassphrase !== walletState.networkPassphrase
+      ) {
+        return {
+          ...prev,
+          ...walletState
+        };
       }
       return prev;
     });
@@ -71,7 +102,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       walletNetwork !== null &&
       passphrase !== null
     ) {
-      updateState({
+      updateWalletState({
         address: walletAddr,
         network: walletNetwork,
         networkPassphrase: passphrase,
@@ -101,7 +132,8 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
           n.networkPassphrase !== state.networkPassphrase
         ) {
           storage.setItem("walletAddress", a.address);
-          updateState({ ...a, ...n });
+          // Use updateWalletState instead of updateState to preserve userProfile
+          updateWalletState({ ...a, ...n });
         }
       } catch (e) {
         // If `getNetwork` or `getAddress` throw errors... sign the user out???
@@ -146,15 +178,39 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       isMounted = false;
       if (timer) clearTimeout(timer);
     };
-  }, [state]); // eslint-disable-line react-hooks/exhaustive-deps -- it SHOULD only run once per component mount
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- it SHOULD only run once per component mount
+
+  // Function to refresh user profile
+  const refreshUserProfile = async () => {
+    if (!state.address) return;
+    
+    try {
+      setState(prev => ({ ...prev, isProfileLoading: true }));
+      const profile = await taskMasterService.getUserProfile(state.address);
+      setState(prev => ({ ...prev, userProfile: profile, isProfileLoading: false }));
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      setState(prev => ({ ...prev, userProfile: null, isProfileLoading: false }));
+    }
+  };
+
+  // Check for user profile when address changes
+  useEffect(() => {
+    if (state.address) {
+      void refreshUserProfile();
+    }
+  }, [state.address]); // Remove refreshUserProfile from dependencies
 
   const contextValue = useMemo(
     () => ({
       ...state,
       isPending,
       signTransaction,
+      userProfile: state.userProfile || null,
+      isProfileLoading: state.isProfileLoading || false,
+      refreshUserProfile,
     }),
-    [state, isPending, signTransaction],
+    [state, isPending, signTransaction, refreshUserProfile],
   );
 
   return <WalletContext value={contextValue}>{children}</WalletContext>;

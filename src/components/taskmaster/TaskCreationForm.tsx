@@ -16,7 +16,6 @@ const TaskCreationForm: React.FC<TaskCreationFormProps> = ({ onTaskCreated }) =>
     githubLink: "",
     fundingAmount: "",
     deadline: "",
-    assignee: "",
   });
 
   const handleInputChange = (field: string, value: string) => {
@@ -31,7 +30,7 @@ const TaskCreationForm: React.FC<TaskCreationFormProps> = ({ onTaskCreated }) =>
       return;
     }
 
-    if (!formData.title || !formData.description || !formData.fundingAmount || !formData.deadline || !formData.assignee) {
+    if (!formData.title || !formData.description || !formData.fundingAmount || !formData.deadline) {
       alert("Please fill in all required fields");
       return;
     }
@@ -49,20 +48,17 @@ const TaskCreationForm: React.FC<TaskCreationFormProps> = ({ onTaskCreated }) =>
       // Configure client with wallet credentials
       taskMasterService.configureWallet(address, signTransaction);
       
-      const tx = await taskMasterService.createTask(
+      const result = await taskMasterService.createTask(
         formData.title,
         formData.description,
         formData.githubLink || "",  // Pass empty string if not provided
         fundingAmount,
         deadline,
-        formData.assignee,
         address
       );
       
       // Debug logging
-      console.log("Transaction created:", tx);
-      
-      const { result } = await tx.signAndSend();
+      console.log("Transaction result:", result);
       
       if (result) {
         onTaskCreated?.();
@@ -73,7 +69,6 @@ const TaskCreationForm: React.FC<TaskCreationFormProps> = ({ onTaskCreated }) =>
           githubLink: "",
           fundingAmount: "",
           deadline: "",
-          assignee: "",
         });
       }
     } catch (error) {
@@ -97,10 +92,10 @@ const TaskCreationForm: React.FC<TaskCreationFormProps> = ({ onTaskCreated }) =>
 
   return (
     <Card>
-      <div style={{ padding: "var(--space-6)" }}>
+      <div className="p-4 min-h-full">
         <Heading as="h2" size="md">Create New Task</Heading>
         
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <Input
               id="title"
@@ -152,7 +147,7 @@ const TaskCreationForm: React.FC<TaskCreationFormProps> = ({ onTaskCreated }) =>
               required
             />
             {formData.fundingAmount && (
-              <Text as="p" size="sm" style={{ marginTop: "var(--space-2)" }}>
+              <Text as="p" size="sm" className="mt-2">
                 Platform fee (3%): {calculatePlatformFee()} XLM
                 <br />
                 Total: {calculateTotal()} XLM
@@ -173,17 +168,6 @@ const TaskCreationForm: React.FC<TaskCreationFormProps> = ({ onTaskCreated }) =>
             />
           </div>
 
-          <div>
-            <Input
-              id="assignee"
-              label="Assignee Address"
-              placeholder="G..."
-              value={formData.assignee}
-              onChange={(e) => handleInputChange("assignee", e.target.value)}
-              fieldSize="md"
-              required
-            />
-          </div>
 
           <Button 
             type="submit" 

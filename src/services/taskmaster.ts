@@ -1,9 +1,8 @@
-import {} from "@stellar/stellar-sdk";
 import {
   Client,
   Task as ContractTask,
   TaskStatus as ContractTaskStatus,
-} from "bindings";
+} from "../contracts/src";
 import {
   TASKMASTER_CONTRACT_ID,
   NATIVE_TOKEN_CONTRACT_ID,
@@ -11,6 +10,7 @@ import {
   Task,
   TaskStatus,
 } from "../util/contract";
+import { UserProfile, TaskApplication } from "../types/user";
 
 export class TaskMasterService {
   public contractId: string;
@@ -67,7 +67,9 @@ export class TaskMasterService {
 
   // Helper function to convert contract Task to our Task interface
   private convertTask(contractTask: ContractTask): Task {
-    return {
+    console.log("Converting contract task:", contractTask);
+    
+    const task = {
       id: Number(contractTask.id),
       title: contractTask.title,
       description: contractTask.description,
@@ -83,7 +85,11 @@ export class TaskMasterService {
         : undefined,
       creator_approved: contractTask.creator_approved,
       assignee_approved: contractTask.assignee_approved,
+      applications: contractTask.applications || []
     };
+    
+    console.log("Converted task:", task);
+    return task;
   }
 
   // Initialize contract with token address and deployer
@@ -111,6 +117,139 @@ export class TaskMasterService {
     return defaultDeployer;
   }
 
+  // Register a user profile
+  async registerUser(
+    address: string,
+    username: string,
+  ) {
+    console.log("Registering user with params:", {
+      address,
+      username
+    });
+    
+    const tx = await this.client.register_user({
+      user: address,
+      username: username,
+    });
+
+    console.log("register_user transaction created:", tx);
+    
+    // Sign and send the transaction
+    const result = await tx.signAndSend();
+    
+    console.log("register_user result:", result);
+    return result;
+  }
+
+  // Get user profile
+  async getUserProfile(address: string): Promise<UserProfile | null> {
+    console.log("Getting user profile for:", address);
+    
+    try {
+      const result = await this.client.get_user_profile({
+        user: address,
+      });
+      
+      console.log("get_user_profile result:", result);
+      
+      if (result.result) {
+        const profile = {
+          address: result.result.address || address,
+          username: result.result.username,
+          created_at: Number(result.result.created_at)
+        };
+        
+        console.log("User profile:", profile);
+        return profile;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error("Error getting user profile:", error);
+      return null;
+    }
+  }
+
+  // Apply for a task
+  async applyForTask(
+    taskId: number,
+    applicant: string,
+    message: string,
+  ) {
+    console.log("Applying for task with params:", {
+      taskId,
+      applicant,
+      message
+    });
+    
+    const tx = await this.client.apply_for_task({
+      task_id: BigInt(taskId),
+      applicant: applicant,
+      message: message,
+    });
+
+    console.log("apply_for_task transaction created:", tx);
+    
+    // Sign and send the transaction
+    const result = await tx.signAndSend();
+
+    console.log("apply_for_task result:", result);
+    return result;
+  }
+
+  // Get task applications
+  async getTaskApplications(taskId: number): Promise<TaskApplication[]> {
+    console.log("Getting applications for task:", taskId);
+    
+    try {
+      const result = await this.client.get_task_applications({
+        task_id: BigInt(taskId),
+      });
+      
+      console.log("get_task_applications result:", result);
+      
+      if (result.result) {
+        return result.result.map((app: any) => ({
+          applicant: app.applicant,
+          message: app.message,
+          applied_at: Number(app.applied_at)
+        }));
+      }
+      
+      return [];
+    } catch (error) {
+      console.error("Error getting task applications:", error);
+      return [];
+    }
+  }
+
+  // Assign task to applicant
+  async assignToApplicant(
+    taskId: number,
+    creator: string,
+    applicant: string,
+  ) {
+    console.log("Assigning task to applicant with params:", {
+      taskId,
+      creator,
+      applicant
+    });
+    
+    const tx = await this.client.assign_to_applicant({
+      task_id: BigInt(taskId),
+      creator: creator,
+      applicant: applicant,
+    });
+
+    console.log("assign_to_applicant transaction created:", tx);
+    
+    // Sign and send the transaction
+    const result = await tx.signAndSend();
+
+    console.log("assign_to_applicant result:", result);
+    return result;
+  }
+
   // Create a new task
   async createTask(
     title: string,
@@ -118,7 +257,6 @@ export class TaskMasterService {
     githubLink: string,
     fundingAmount: bigint,
     deadline: number,
-    assignee: string,
     creator: string,
   ) {
     console.log("Creating task with params:", {
@@ -127,103 +265,185 @@ export class TaskMasterService {
       description,
       githubLink,
       fundingAmount: fundingAmount.toString(),
-      deadline,
-      assignee
+      deadline
     });
     
-    const result = await this.client.create_task({
+    const tx = await this.client.create_task({
       creator: creator,
       title: title,
       description: description,
       github_link: githubLink,
       funding_amount: fundingAmount,
       deadline: BigInt(deadline),
-      assignee: assignee,
     });
+
+    console.log("create_task transaction created:", tx);
+    
+    // Sign and send the transaction
+    const result = await tx.signAndSend();
 
     console.log("create_task result:", result);
     return result;
   }
 
+  // Assign a task to a user
+  async assignTask(
+    taskId: number,
+    creator: string,
+    assignee: string,
+  ) {
+    console.log("Assigning task with params:", {
+      taskId,
+      creator,
+      assignee
+    });
+    
+    const tx = await this.client.reassign_task({
+      task_id: BigInt(taskId),
+      creator: creator,
+      new_assignee: assignee,
+    });
+
+    console.log("assign_task transaction created:", tx);
+    
+    // Sign and send the transaction
+    const result = await tx.signAndSend();
+
+    console.log("assign_task result:", result);
+    return result;
+  }
+
   // Start a task
   async startTask(taskId: number, assignee: string) {
-    const result = await this.client.start_task({
+    const tx = await this.client.start_task({
       assignee: assignee,
       task_id: BigInt(taskId),
     });
 
+    console.log("start_task transaction created:", tx);
+    
+    // Sign and send the transaction
+    const result = await tx.signAndSend();
+
+    console.log("start_task result:", result);
     return result;
   }
 
   // Complete a task
   async completeTask(taskId: number, assignee: string) {
-    const result = await this.client.complete_task({
+    const tx = await this.client.complete_task({
       assignee: assignee,
       task_id: BigInt(taskId),
     });
 
+    console.log("complete_task transaction created:", tx);
+    
+    // Sign and send the transaction
+    const result = await tx.signAndSend();
+
+    console.log("complete_task result:", result);
     return result;
   }
 
   // Release funds
   async releaseFunds(taskId: number, creator: string) {
-    const result = await this.client.release_funds({
+    const tx = await this.client.release_funds({
       creator: creator,
       task_id: BigInt(taskId),
     });
 
+    console.log("release_funds transaction created:", tx);
+    
+    // Sign and send the transaction
+    const result = await tx.signAndSend();
+
+    console.log("release_funds result:", result);
     return result;
   }
 
   // Cancel a task
   async cancelTask(taskId: number, creator: string) {
-    const result = await this.client.cancel_task({
+    const tx = await this.client.cancel_task({
       creator: creator,
       task_id: BigInt(taskId),
     });
 
+    console.log("cancel_task transaction created:", tx);
+    
+    // Sign and send the transaction
+    const result = await tx.signAndSend();
+
+    console.log("cancel_task result:", result);
     return result;
   }
 
   // Mark task as expired
   async markExpired(taskId: number) {
-    const result = await this.client.mark_expired({
+    const tx = await this.client.mark_expired({
       task_id: BigInt(taskId),
     });
 
+    console.log("mark_expired transaction created:", tx);
+    
+    // Sign and send the transaction
+    const result = await tx.signAndSend();
+
+    console.log("mark_expired result:", result);
     return result;
   }
 
   // Reclaim expired funds
   async reclaimExpiredFunds(taskId: number, creator: string) {
-    const result = await this.client.reclaim_expired_funds({
+    const tx = await this.client.reclaim_expired_funds({
       creator: creator,
       task_id: BigInt(taskId),
     });
 
+    console.log("reclaim_expired_funds transaction created:", tx);
+    
+    // Sign and send the transaction
+    const result = await tx.signAndSend();
+
+    console.log("reclaim_expired_funds result:", result);
     return result;
   }
 
   // Reassign task
   async reassignTask(taskId: number, creator: string, newAssignee: string) {
-    const result = await this.client.reassign_task({
+    const tx = await this.client.reassign_task({
       creator: creator,
       task_id: BigInt(taskId),
       new_assignee: newAssignee,
     });
 
+    console.log("reassign_task transaction created:", tx);
+    
+    // Sign and send the transaction
+    const result = await tx.signAndSend();
+
+    console.log("reassign_task result:", result);
     return result;
   }
 
   // Get task details
   async getTask(taskId: number): Promise<Task | null> {
+    console.log(`Fetching task ${taskId} from contract:`, {
+      contractId: this.contractId,
+      networkPassphrase: this.client.options.networkPassphrase,
+      rpcUrl: this.client.options.rpcUrl
+    });
+    
     try {
       const result = await this.client.get_task({
         task_id: BigInt(taskId),
       });
 
+      console.log(`Raw task ${taskId} result:`, result);
+
       if (result.result) {
-        return this.convertTask(result.result);
+        const convertedTask = this.convertTask(result.result);
+        console.log(`Converted task ${taskId}:`, convertedTask);
+        return convertedTask;
       }
 
       return null;
@@ -249,76 +469,86 @@ export class TaskMasterService {
           
           // Try to extract other task data from the error message
           // The error message contains the full task data in a structured format
-          // We'll use a more comprehensive regex to extract all fields
-          const taskDataMatch = errorStr.match(/\{[^}]+\}/);
-          if (taskDataMatch) {
-            try {
-              // Parse the task data from the error message
-              const taskDataStr = taskDataMatch[0];
-              const taskData = JSON.parse(taskDataStr);
-              
-              // Convert to our Task interface
-              return {
-                id: Number(taskData.id),
-                title: taskData.title,
-                description: taskData.description,
-                github_link: githubLink || taskData.github_link || "",
-                funding_amount: BigInt(taskData.funding_amount),
-                deadline: Number(taskData.deadline),
-                creator: taskData.creator,
-                assignee: taskData.assignee || undefined,
-                status: this.convertTaskStatus(taskData.status),
-                created_at: Number(taskData.created_at),
-                completed_at: taskData.completed_at
-                  ? Number(taskData.completed_at)
-                  : undefined,
-                creator_approved: taskData.creator_approved,
-                assignee_approved: taskData.assignee_approved,
-              };
-            } catch (parseError) {
-              console.error("Failed to parse task data from error:", parseError);
-            }
-          }
+          // We'll use individual regex patterns to extract each field
           
           // Try to extract funding amount from the error message
-          const fundingMatch = errorStr.match(/"funding_amount":\s*"([^"]+)"/);
+          // The error message format might be different, so try multiple patterns
           let fundingAmount = 0n;
-          if (fundingMatch) {
-            fundingAmount = BigInt(fundingMatch[1]);
-            console.log("Extracted funding_amount from error:", fundingAmount.toString());
+          
+          // Pattern 1: Standard JSON format
+          let fundingMatch = errorStr.match(/"funding_amount":\s*"([^"]+)"/);
+          if (!fundingMatch) {
+            // Pattern 2: Number format without quotes
+            fundingMatch = errorStr.match(/"funding_amount":\s*(\d+)/);
+          }
+          if (!fundingMatch) {
+            // Pattern 3: Look for any number after funding_amount
+            fundingMatch = errorStr.match(/funding_amount[^0-9]*([0-9]+)/);
           }
           
-          // Try to extract other fields from the error message
-          const titleMatch = errorStr.match(/"title":\s*"([^"]+)"/);
-          const descriptionMatch = errorStr.match(/"description":\s*"([^"]+)"/);
-          const creatorMatch = errorStr.match(/"creator":\s*"([^"]+)"/);
-          const assigneeMatch = errorStr.match(/"assignee":\s*"([^"]+)"/);
-          const deadlineMatch = errorStr.match(/"deadline":\s*([^"]+)"/);
-          const createdMatch = errorStr.match(/"created_at":\s*([^"]+)"/);
-          const statusMatch = errorStr.match(/"status":\s*\{[^}]+\}/);
-          
-          // Extract status tag
-          let statusTag = "Created";
-          if (statusMatch) {
-            const statusStr = statusMatch[0];
-            const tagMatch = statusStr.match(/"tag":\s*"([^"]+)"/);
-            if (tagMatch) {
-              statusTag = tagMatch[1];
+          if (fundingMatch) {
+            try {
+              fundingAmount = BigInt(fundingMatch[1]);
+              console.log("Extracted funding_amount from error:", fundingAmount.toString());
+            } catch (e) {
+              console.warn("Failed to parse funding amount:", fundingMatch[1]);
             }
           }
           
-          // If we can't get the data from the error, create a minimal task object
+          // Try to extract other fields from the error message with multiple patterns
+          const extractField = (fieldName: string): string | undefined => {
+            // Pattern 1: Standard JSON format with quotes
+            let match = errorStr.match(new RegExp(`"${fieldName}":\\s*"([^"]+)"`));
+            if (!match) {
+              // Pattern 2: Number format without quotes
+              match = errorStr.match(new RegExp(`"${fieldName}":\\s*([^,}\\s]+)`));
+            }
+            if (!match) {
+              // Pattern 3: Look for field name followed by any content
+              match = errorStr.match(new RegExp(`${fieldName}[^:]*:\\s*([^,}\\s]+)`));
+            }
+            return match ? match[1] : undefined;
+          };
+          
+          const title = extractField("title") || `Task ${taskId}`;
+          const description = extractField("description") || "Unable to load description";
+          const creator = extractField("creator") || "";
+          const assignee = extractField("assignee");
+          const deadline = extractField("deadline");
+          const created = extractField("created_at");
+          
+          // Extract status with special handling
+          let statusTag = "Created";
+          const statusMatch = errorStr.match(/"status":\s*\{[^}]*"tag":\s*"([^"]+)"/);
+          if (statusMatch) {
+            statusTag = statusMatch[1];
+          }
+          
+          // Log what we found
+          console.log("Extracted task data from error:", {
+            title,
+            description,
+            creator,
+            assignee,
+            funding: fundingAmount.toString(),
+            deadline,
+            created,
+            status: statusTag,
+            githubLink
+          });
+          
+          // Return the task object with extracted data
           return {
             id: taskId,
-            title: titleMatch ? titleMatch[1] : "Task " + taskId,
-            description: descriptionMatch ? descriptionMatch[1] : "Unable to load description",
+            title,
+            description,
             github_link: githubLink,
             funding_amount: fundingAmount,
-            deadline: deadlineMatch ? Number(deadlineMatch[1]) : 0,
-            creator: creatorMatch ? creatorMatch[1] : "",
-            assignee: assigneeMatch ? assigneeMatch[1] : undefined,
+            deadline: deadline ? Number(deadline) : 0,
+            creator,
+            assignee,
             status: this.convertTaskStatus({ tag: statusTag as any, values: undefined }),
-            created_at: createdMatch ? Number(createdMatch[1]) : 0,
+            created_at: created ? Number(created) : 0,
             completed_at: undefined,
             creator_approved: false,
             assignee_approved: false,
@@ -357,7 +587,7 @@ export class TaskMasterService {
       });
 
       if (result.result) {
-        return result.result.map((id) => Number(id));
+        return result.result.map((id: bigint) => Number(id));
       }
 
       return [];
@@ -375,7 +605,7 @@ export class TaskMasterService {
       });
 
       if (result.result) {
-        return result.result.map((id) => Number(id));
+        return result.result.map((id: bigint) => Number(id));
       }
 
       return [];
@@ -461,10 +691,16 @@ export class TaskMasterService {
 
   // Withdraw platform fees
   async withdrawPlatformFees(publicKey: string) {
-    const result = await this.client.withdraw_platform_fees({
+    const tx = await this.client.withdraw_platform_fees({
       deployer: publicKey,
     });
 
+    console.log("withdraw_platform_fees transaction created:", tx);
+    
+    // Sign and send the transaction
+    const result = await tx.signAndSend();
+
+    console.log("withdraw_platform_fees result:", result);
     return result;
   }
 

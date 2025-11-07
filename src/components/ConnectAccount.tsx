@@ -6,15 +6,7 @@ import NetworkPill from "./NetworkPill";
 
 const ConnectAccount: React.FC = () => {
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "row",
-        alignItems: "center",
-        gap: "10px",
-        verticalAlign: "middle",
-      }}
-    >
+    <div className="flex flex-row items-center gap-2.5 align-middle">
       <WalletButton />
       {NETWORK_PASSPHRASE !== "Public Global Stellar Network ; September 2015" && <FundAccountButton />}
       <NetworkPill />

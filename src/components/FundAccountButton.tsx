@@ -61,7 +61,7 @@ const FundAccountButton: React.FC = () => {
           </Button>
         }
       >
-        <div style={{ width: "13em" }}>
+        <div className="w-[13em]">
           {isFunded
             ? "Account is already funded"
             : "Fund your account using the Stellar Friendbot"}

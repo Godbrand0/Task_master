@@ -5,6 +5,7 @@ import { useWallet } from "../../hooks/useWallet";
 import { Task, TaskStatus, shortenContractId } from "../../util/contract";
 import { taskMasterService } from "../../services/taskmaster";
 import StatusBadge from "../../components/taskmaster/StatusBadge";
+import { TaskApplication } from "../../types/user";
 
 const TaskDetails: React.FC = () => {
   const { taskId } = useParams<{ taskId: string }>();
@@ -13,26 +14,44 @@ const TaskDetails: React.FC = () => {
   const [task, setTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [applications, setApplications] = useState<TaskApplication[]>([]);
+  const [creatorUsername, setCreatorUsername] = useState<string>('');
 
   useEffect(() => {
-    const loadTask = async () => {
+    const loadTaskData = async () => {
       if (!taskId) return;
 
       try {
         setLoading(true);
+        
+        // Load task data
         const taskData = await taskMasterService.getTask(parseInt(taskId));
         setTask(taskData);
+        
+        // Load applications if task is in Created status
+        if (taskData && taskData.status === TaskStatus.Created) {
+          const apps = await taskMasterService.getTaskApplications(taskData.id);
+          setApplications(apps);
+        }
+        
+        // Load creator username
+        if (taskData) {
+          const creatorProfile = await taskMasterService.getUserProfile(taskData.creator);
+          if (creatorProfile) {
+            setCreatorUsername(creatorProfile.username);
+          }
+        }
       } catch (error) {
-        console.error("Error loading task:", error);
+        console.error("Error loading task data:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    loadTask();
+    loadTaskData();
   }, [taskId]);
 
-  const handleAction = async (action: string) => {
+  const handleAction = async (action: string, applicantAddress?: string) => {
     if (!address || !task) return;
 
     try {
@@ -40,39 +59,47 @@ const TaskDetails: React.FC = () => {
       
       // Configure client with wallet credentials
       taskMasterService.configureWallet(address, signTransaction);
-
-      let tx;
+      
       switch (action) {
         case "start":
-          tx = await taskMasterService.startTask(task.id, address);
+          await taskMasterService.startTask(task.id, address);
           break;
         case "complete":
-          tx = await taskMasterService.completeTask(task.id, address);
+          await taskMasterService.completeTask(task.id, address);
           break;
         case "approve":
-          tx = await taskMasterService.releaseFunds(task.id, address);
+          await taskMasterService.releaseFunds(task.id, address);
           break;
         case "cancel":
-          tx = await taskMasterService.cancelTask(task.id, address);
+          await taskMasterService.cancelTask(task.id, address);
           break;
         case "reclaim":
-          tx = await taskMasterService.reclaimExpiredFunds(task.id, address);
+          await taskMasterService.reclaimExpiredFunds(task.id, address);
           break;
         case "reassign":
           const newAssignee = prompt("Enter new assignee address:");
           if (newAssignee) {
-            tx = await taskMasterService.reassignTask(task.id, address, newAssignee);
+            await taskMasterService.reassignTask(task.id, address, newAssignee);
+          }
+          break;
+        case "assign":
+          if (applicantAddress) {
+            await taskMasterService.assignToApplicant(task.id, address, applicantAddress);
           }
           break;
       }
 
-      if (tx) {
-        await tx.signAndSend();
-      }
-
       // Reload task data to see updated state
       const updatedTask = await taskMasterService.getTask(task.id);
-      setTask(updatedTask);
+      if (updatedTask) {
+        setTask(updatedTask);
+      }
+      
+      // Reload applications if task was assigned
+      if (action === "assign" && updatedTask) {
+        const apps = await taskMasterService.getTaskApplications(updatedTask.id);
+        setApplications(apps);
+      }
     } catch (error) {
       console.error(`Error performing ${action}:`, error);
       alert(`Failed to ${action} task. Please try again.`);
@@ -96,7 +123,7 @@ const TaskDetails: React.FC = () => {
   if (loading) {
     return (
       <Card>
-        <div style={{ padding: "2rem", textAlign: "center" }}>
+        <div className="p-8 text-center">
           <Text as="p" size="md">Loading task details...</Text>
         </div>
       </Card>
@@ -106,7 +133,7 @@ const TaskDetails: React.FC = () => {
   if (!task) {
     return (
       <Card>
-        <div style={{ padding: "2rem", textAlign: "center" }}>
+        <div className="p-8 text-center">
           <Text as="p" size="md">Task not found.</Text>
         </div>
       </Card>
@@ -114,39 +141,34 @@ const TaskDetails: React.FC = () => {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+    <div className="flex flex-col gap-6">
       <Card>
-        <div style={{ padding: "1.5rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+        <div className="p-6">
+          <div className="flex justify-between items-start mb-4">
             <Heading as="h1" size="xl">{task.title}</Heading>
             <StatusBadge status={task.status} />
           </div>
           
-          <Text as="p" size="md" style={{ marginBottom: "1rem" }}>
+          <Text as="p" size="md" className="mb-4">
             {task.description}
           </Text>
           
           {task.github_link && (
-            <div style={{ marginBottom: "1rem" }}>
+            <div className="mb-4">
               <Text as="p" size="sm"><strong>GitHub Repository:</strong></Text>
               <br />
-              <a 
-                href={task.github_link} 
-                target="_blank" 
+              <a
+                href={task.github_link}
+                target="_blank"
                 rel="noopener noreferrer"
-                style={{ color: "#007bff", textDecoration: "none" }}
+                className="text-blue-600 no-underline"
               >
                 {task.github_link}
               </a>
             </div>
           )}
 
-          <div style={{ 
-            display: "grid", 
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", 
-            gap: "1rem", 
-            marginBottom: "1rem" 
-          }}>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4 mb-4">
             <div>
               <Text as="p" size="sm"><strong>Task ID:</strong> #{task.id}</Text>
             </div>
@@ -161,14 +183,9 @@ const TaskDetails: React.FC = () => {
             </div>
           </div>
 
-          <div style={{ 
-            display: "grid", 
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", 
-            gap: "1rem", 
-            marginBottom: "1rem" 
-          }}>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4 mb-4">
             <div>
-              <Text as="p" size="sm"><strong>Creator:</strong> {shortenContractId(task.creator)}</Text>
+              <Text as="p" size="sm"><strong>Creator:</strong> {creatorUsername || shortenContractId(task.creator)}</Text>
             </div>
             <div>
               <Text as="p" size="sm"><strong>Assignee:</strong> {task.assignee ? shortenContractId(task.assignee) : "Not assigned"}</Text>
@@ -182,13 +199,13 @@ const TaskDetails: React.FC = () => {
           </div>
 
           {task.completed_at && (
-            <div style={{ marginBottom: "1rem" }}>
+            <div className="mb-4">
               <Text as="p" size="sm"><strong>Completed:</strong> {formatDate(task.completed_at)}</Text>
             </div>
           )}
 
           {isExpired && task.status !== TaskStatus.Expired && task.status !== TaskStatus.Cancelled && (
-            <Text as="p" size="sm" style={{ color: "red", marginBottom: "1rem" }}>
+            <Text as="p" size="sm" className="text-red-600 mb-4">
               ⚠️ This task has expired!
             </Text>
           )}
@@ -196,10 +213,10 @@ const TaskDetails: React.FC = () => {
       </Card>
 
       <Card>
-        <div style={{ padding: "1.5rem" }}>
+        <div className="p-6">
           <Heading as="h2" size="lg">Actions</Heading>
           
-          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div className="flex flex-col gap-4">
             {isAssignee && task.status === TaskStatus.Assigned && !isExpired && (
               <Button
                 variant="primary"
@@ -249,7 +266,7 @@ const TaskDetails: React.FC = () => {
             )}
             
             {isCreator && task.status === TaskStatus.Expired && (
-              <div style={{ display: "flex", gap: "1rem" }}>
+              <div className="flex gap-4">
                 <Button
                   variant="secondary"
                   onClick={() => handleAction("reclaim")}
@@ -274,7 +291,49 @@ const TaskDetails: React.FC = () => {
         </div>
       </Card>
 
-      <div style={{ textAlign: "center" }}>
+      {/* Show applicants for tasks with Created status */}
+      {task.status === TaskStatus.Created && applications.length > 0 && (
+        <Card>
+          <div className="p-6">
+            <Heading as="h2" size="lg">Applicants ({applications.length})</Heading>
+            
+            <div className="flex flex-col gap-4 mt-4">
+              {applications.map((application, index) => (
+                <div
+                  key={index}
+                  className="border border-gray-200 rounded-lg p-4 flex justify-between items-center"
+                >
+                  <div>
+                    <Text as="p" size="sm" className="font-bold">
+                      Applicant: {shortenContractId(application.applicant)}
+                    </Text>
+                    <Text as="p" size="sm" className="mt-2">
+                      {application.message}
+                    </Text>
+                    <Text as="p" size="sm" className="text-gray-600 mt-2">
+                      Applied: {formatDate(application.applied_at)}
+                    </Text>
+                  </div>
+                  
+                  {isCreator && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handleAction("assign", application.applicant)}
+                      disabled={actionLoading === `assign-${index}`}
+                      isLoading={actionLoading === `assign-${index}`}
+                    >
+                      Assign Task
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+      )}
+
+      <div className="text-center">
         <Button
           variant="tertiary"
           onClick={() => navigate("/taskmaster")}

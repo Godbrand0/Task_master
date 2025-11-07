@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Button, Text, Heading } from "@stellar/design-system";
+import { Button, Text } from "@stellar/design-system";
 import { useWallet } from "../../hooks/useWallet";
 import { Task, TaskStatus, shortenContractId } from "../../util/contract";
 import { taskMasterService } from "../../services/taskmaster";
 import StatusBadge from "./StatusBadge";
-import "./TaskModal.css";
 
 interface TaskModalProps {
   taskId: number;
@@ -37,6 +36,39 @@ const TaskModal: React.FC<TaskModalProps> = ({ taskId, isOpen, onClose, onTaskUp
     }
   }, [isOpen, taskId]);
 
+  // Manage body scroll when modal opens/closes
+  useEffect(() => {
+    if (isOpen) {
+      // Save current scroll position
+      const scrollY = window.scrollY;
+      
+      // Disable scroll
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      document.body.style.overflow = 'hidden';
+    } else {
+      // Restore scroll
+      const scrollY = document.body.style.top;
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      document.body.style.overflow = '';
+      
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || '0') * -1);
+      }
+    }
+    
+    // Cleanup function to restore scroll when component unmounts
+    return () => {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
   const handleAction = async (action: string) => {
     if (!address || !task) return;
 
@@ -45,33 +77,28 @@ const TaskModal: React.FC<TaskModalProps> = ({ taskId, isOpen, onClose, onTaskUp
       
       taskMasterService.configureWallet(address, signTransaction);
 
-      let tx;
       switch (action) {
         case "start":
-          tx = await taskMasterService.startTask(task.id, address);
+          await taskMasterService.startTask(task.id, address);
           break;
         case "complete":
-          tx = await taskMasterService.completeTask(task.id, address);
+          await taskMasterService.completeTask(task.id, address);
           break;
         case "approve":
-          tx = await taskMasterService.releaseFunds(task.id, address);
+          await taskMasterService.releaseFunds(task.id, address);
           break;
         case "cancel":
-          tx = await taskMasterService.cancelTask(task.id, address);
+          await taskMasterService.cancelTask(task.id, address);
           break;
         case "reclaim":
-          tx = await taskMasterService.reclaimExpiredFunds(task.id, address);
+          await taskMasterService.reclaimExpiredFunds(task.id, address);
           break;
         case "reassign":
           const newAssignee = prompt("Enter new assignee address:");
           if (newAssignee) {
-            tx = await taskMasterService.reassignTask(task.id, address, newAssignee);
+            await taskMasterService.reassignTask(task.id, address, newAssignee);
           }
           break;
-      }
-
-      if (tx) {
-        await tx.signAndSend();
       }
 
       await loadTask();
@@ -110,56 +137,60 @@ const TaskModal: React.FC<TaskModalProps> = ({ taskId, isOpen, onClose, onTaskUp
   );
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%", paddingRight: "var(--space-10)" }}>
-            <div style={{ flex: 1 }}>
-              <h1 className="headline" style={{ fontSize: "32px", margin: 0, marginBottom: "var(--space-2)" }}>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-lg max-w-4xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="p-6 border-b border-gray-200 bg-white flex items-start justify-between gap-4 relative">
+          <div className="flex justify-between items-start w-full pr-10">
+            <div className="flex-1">
+              <h1 className="font-bebas text-4xl m-0 mb-2 uppercase">
                 {loading ? "LOADING..." : task?.title.toUpperCase() || "TASK DETAILS"}
               </h1>
               {task && (
-                <div style={{ marginTop: "var(--space-2)" }}>
+                <div className="mt-2">
                   <StatusBadge status={task.status} />
                 </div>
               )}
             </div>
           </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close">
+          <button
+            className="absolute top-6 right-6 bg-white border-2 border-gray-300 text-xl leading-none text-gray-900 cursor-pointer p-0 w-9 h-9 flex items-center justify-center rounded-full transition-all duration-120 z-10 hover:bg-gray-100 hover:border-gray-400 focus-visible:outline-3 focus-visible:outline-blue-500 focus-visible:outline-offset-2"
+            onClick={onClose}
+            aria-label="Close"
+          >
             ×
           </button>
         </div>
 
-        <div className="modal-body">
+        <div className="p-6 overflow-y-auto flex-1 bg-gray-50">
           {loading ? (
-            <div style={{ textAlign: "center", padding: "var(--space-8)" }}>
+            <div className="text-center p-8">
               <Text as="p" size="md">Loading task details...</Text>
             </div>
           ) : !task ? (
-            <div style={{ textAlign: "center", padding: "var(--space-8)" }}>
+            <div className="text-center p-8">
               <Text as="p" size="md">Task not found.</Text>
             </div>
           ) : (
-            <div className="stack-6">
+            <div className="space-y-6">
               {/* Description Section */}
-              <div className="modal-section">
-                <h3 className="headline-long" style={{ fontSize: "20px", marginTop: 0, marginBottom: "var(--space-4)", color: "var(--color-ink)" }}>
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                <h3 className="font-lora text-xl mt-0 mb-4 text-gray-900">
                   Description
                 </h3>
-                <Text as="p" size="md" style={{ lineHeight: 1.6, color: "var(--color-ink)" }}>
+                <Text as="p" size="md" className="leading-relaxed text-gray-900">
                   {task.description}
                 </Text>
                 
                 {task.github_link && task.github_link !== "" && (
-                  <div style={{ marginTop: "var(--space-4)", padding: "var(--space-3)", background: "var(--color-bg)", borderRadius: "var(--radius-md)" }}>
-                    <Text as="p" size="sm" style={{ marginBottom: "var(--space-1)", color: "color-mix(in oklab, var(--color-ink), white 40%)", fontWeight: 600 }}>
+                  <div className="mt-4 p-3 bg-gray-50 rounded-md">
+                    <Text as="p" size="sm" className="mb-1 text-gray-500 font-semibold">
                       GitHub Repository
                     </Text>
-                    <a 
-                      href={task.github_link} 
-                      target="_blank" 
+                    <a
+                      href={task.github_link}
+                      target="_blank"
                       rel="noopener noreferrer"
-                      className="modal-link"
+                      className="text-blue-600 break-all text-decoration-none font-medium transition-colors duration-120 hover:text-blue-600 hover:underline opacity-80"
                     >
                       {task.github_link}
                     </a>
@@ -168,42 +199,38 @@ const TaskModal: React.FC<TaskModalProps> = ({ taskId, isOpen, onClose, onTaskUp
               </div>
 
               {/* Funding Details */}
-              <div className="modal-section">
-                <h3 className="headline-long" style={{ fontSize: "20px", marginTop: 0, marginBottom: "var(--space-4)", color: "var(--color-ink)" }}>
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                <h3 className="font-lora text-xl mt-0 mb-4 text-gray-900">
                   Funding Details
                 </h3>
-                <div style={{ 
-                  display: "grid", 
-                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", 
-                  gap: "var(--space-4)"
-                }}>
-                  <div className="modal-field">
-                    <Text as="p" size="xs" style={{ color: "color-mix(in oklab, var(--color-ink), white 40%)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "var(--space-1)" }}>
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
+                  <div className="p-3 bg-gray-50 rounded-md">
+                    <Text as="p" size="xs" className="text-gray-500 uppercase tracking-wide mb-1">
                       Task ID
                     </Text>
-                    <Text as="p" size="md" style={{ fontWeight: 600 }}>#{task.id}</Text>
+                    <Text as="p" size="md" className="font-semibold">#{task.id}</Text>
                   </div>
-                  <div className="modal-field">
-                    <Text as="p" size="xs" style={{ color: "color-mix(in oklab, var(--color-ink), white 40%)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "var(--space-1)" }}>
+                  <div className="p-3 bg-gray-50 rounded-md">
+                    <Text as="p" size="xs" className="text-gray-500 uppercase tracking-wide mb-1">
                       Funding Amount
                     </Text>
-                    <Text as="p" size="md" style={{ fontWeight: 600 }}>
+                    <Text as="p" size="md" className="font-semibold">
                       {formatAmount(task.funding_amount)} XLM
                     </Text>
                   </div>
-                  <div className="modal-field">
-                    <Text as="p" size="xs" style={{ color: "color-mix(in oklab, var(--color-ink), white 40%)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "var(--space-1)" }}>
+                  <div className="p-3 bg-gray-50 rounded-md">
+                    <Text as="p" size="xs" className="text-gray-500 uppercase tracking-wide mb-1">
                       Platform Fee (3%)
                     </Text>
-                    <Text as="p" size="md" style={{ fontWeight: 600 }}>
+                    <Text as="p" size="md" className="font-semibold">
                       {formatAmount(task.funding_amount * 3n / 100n)} XLM
                     </Text>
                   </div>
-                  <div className="modal-field">
-                    <Text as="p" size="xs" style={{ color: "color-mix(in oklab, var(--color-ink), white 40%)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "var(--space-1)" }}>
+                  <div className="p-3 bg-gray-50 rounded-md">
+                    <Text as="p" size="xs" className="text-gray-500 uppercase tracking-wide mb-1">
                       Assignee Receives
                     </Text>
-                    <Text as="p" size="md" style={{ fontWeight: 600 }}>
+                    <Text as="p" size="md" className="font-semibold">
                       {formatAmount(task.funding_amount * 97n / 100n)} XLM
                     </Text>
                   </div>
@@ -211,69 +238,59 @@ const TaskModal: React.FC<TaskModalProps> = ({ taskId, isOpen, onClose, onTaskUp
               </div>
 
               {/* Task Information */}
-              <div className="modal-section">
-                <h3 className="headline-long" style={{ fontSize: "20px", marginTop: 0, marginBottom: "var(--space-4)", color: "var(--color-ink)" }}>
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                <h3 className="font-lora text-xl mt-0 mb-4 text-gray-900">
                   Task Information
                 </h3>
-                <div style={{ 
-                  display: "grid", 
-                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", 
-                  gap: "var(--space-4)"
-                }}>
-                  <div className="modal-field">
-                    <Text as="p" size="xs" style={{ color: "color-mix(in oklab, var(--color-ink), white 40%)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "var(--space-1)" }}>
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
+                  <div className="p-3 bg-gray-50 rounded-md">
+                    <Text as="p" size="xs" className="text-gray-500 uppercase tracking-wide mb-1">
                       Creator
                     </Text>
-                    <Text as="p" size="md" style={{ fontWeight: 600, fontFamily: "monospace" }}>
+                    <Text as="p" size="md" className="font-semibold font-mono">
                       {shortenContractId(task.creator)}
                     </Text>
                   </div>
-                  <div className="modal-field">
-                    <Text as="p" size="xs" style={{ color: "color-mix(in oklab, var(--color-ink), white 40%)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "var(--space-1)" }}>
+                  <div className="p-3 bg-gray-50 rounded-md">
+                    <Text as="p" size="xs" className="text-gray-500 uppercase tracking-wide mb-1">
                       Assignee
                     </Text>
-                    <Text as="p" size="md" style={{ fontWeight: 600, fontFamily: "monospace" }}>
+                    <Text as="p" size="md" className="font-semibold font-mono">
                       {task.assignee ? shortenContractId(task.assignee) : "Not assigned"}
                     </Text>
                   </div>
-                  <div className="modal-field">
-                    <Text as="p" size="xs" style={{ color: "color-mix(in oklab, var(--color-ink), white 40%)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "var(--space-1)" }}>
+                  <div className="p-3 bg-gray-50 rounded-md">
+                    <Text as="p" size="xs" className="text-gray-500 uppercase tracking-wide mb-1">
                       Created
                     </Text>
-                    <Text as="p" size="md" style={{ fontWeight: 600 }}>
+                    <Text as="p" size="md" className="font-semibold">
                       {formatDate(task.created_at)}
                     </Text>
                   </div>
-                  <div className="modal-field">
-                    <Text as="p" size="xs" style={{ color: "color-mix(in oklab, var(--color-ink), white 40%)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "var(--space-1)" }}>
+                  <div className="p-3 bg-gray-50 rounded-md">
+                    <Text as="p" size="xs" className="text-gray-500 uppercase tracking-wide mb-1">
                       Deadline
                     </Text>
-                    <Text as="p" size="md" style={{ fontWeight: 600 }}>
+                    <Text as="p" size="md" className="font-semibold">
                       {formatDate(task.deadline)}
                     </Text>
                   </div>
                 </div>
 
                 {task.completed_at && (
-                  <div className="modal-field" style={{ marginTop: "var(--space-4)" }}>
-                    <Text as="p" size="xs" style={{ color: "color-mix(in oklab, var(--color-ink), white 40%)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "var(--space-1)" }}>
+                  <div className="p-3 bg-gray-50 rounded-md mt-4">
+                    <Text as="p" size="xs" className="text-gray-500 uppercase tracking-wide mb-1">
                       Completed
                     </Text>
-                    <Text as="p" size="md" style={{ fontWeight: 600 }}>
+                    <Text as="p" size="md" className="font-semibold">
                       {formatDate(task.completed_at)}
                     </Text>
                   </div>
                 )}
 
                 {isExpired && task.status !== TaskStatus.Expired && task.status !== TaskStatus.Cancelled && (
-                  <div style={{ 
-                    marginTop: "var(--space-4)", 
-                    padding: "var(--space-4)", 
-                    background: "color-mix(in oklab, red, white 85%)",
-                    borderRadius: "var(--radius-md)",
-                    border: "1px solid color-mix(in oklab, red, white 70%)"
-                  }}>
-                    <Text as="p" size="sm" style={{ color: "color-mix(in oklab, var(--color-ink), red 35%)", fontWeight: 600 }}>
+                  <div className="mt-4 p-4 bg-red-50 rounded-md border border-red-200">
+                    <Text as="p" size="sm" className="text-red-700 font-semibold">
                       ⚠️ This task has expired!
                     </Text>
                   </div>
@@ -282,81 +299,81 @@ const TaskModal: React.FC<TaskModalProps> = ({ taskId, isOpen, onClose, onTaskUp
 
               {/* Actions Section */}
               {hasActions && (
-                <div className="modal-section">
-                  <h3 className="headline-long" style={{ fontSize: "20px", marginTop: 0, marginBottom: "var(--space-4)", color: "var(--color-ink)" }}>
+                <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                  <h3 className="font-lora text-xl mt-0 mb-4 text-gray-900">
                     Actions
                   </h3>
-                  <div className="stack-3">
-                  {isAssignee && task.status === TaskStatus.Assigned && !isExpired && (
-                  <Button
-                    variant="primary"
-                    onClick={() => handleAction("start")}
-                    disabled={actionLoading === "start"}
-                    isLoading={actionLoading === "start"}
-                    size="md"
-                  >
-                    Start Task
-                  </Button>
-                )}
-                
-                {isAssignee && task.status === TaskStatus.InProgress && !isExpired && (
-                  <Button
-                    variant="primary"
-                    onClick={() => handleAction("complete")}
-                    disabled={actionLoading === "complete"}
-                    isLoading={actionLoading === "complete"}
-                    size="md"
-                  >
-                    Complete Task
-                  </Button>
-                )}
-                
-                {isCreator && task.status === TaskStatus.Completed && (
-                  <Button
-                    variant="success"
-                    onClick={() => handleAction("approve")}
-                    disabled={actionLoading === "approve"}
-                    isLoading={actionLoading === "approve"}
-                    size="md"
-                  >
-                    Approve & Release Funds
-                  </Button>
-                )}
-                
-                {isCreator && (task.status === TaskStatus.Assigned || task.status === TaskStatus.InProgress) && (
-                  <Button
-                    variant="secondary"
-                    onClick={() => handleAction("cancel")}
-                    disabled={actionLoading === "cancel"}
-                    isLoading={actionLoading === "cancel"}
-                    size="md"
-                  >
-                    Cancel Task
-                  </Button>
-                )}
-                
-                {isCreator && task.status === TaskStatus.Expired && (
-                  <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap" }}>
-                    <Button
-                      variant="secondary"
-                      onClick={() => handleAction("reclaim")}
-                      disabled={actionLoading === "reclaim"}
-                      isLoading={actionLoading === "reclaim"}
-                      size="md"
-                    >
-                      Reclaim Funds
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => handleAction("reassign")}
-                      disabled={actionLoading === "reassign"}
-                      isLoading={actionLoading === "reassign"}
-                      size="md"
-                    >
-                      Reassign Task
-                    </Button>
-                  </div>
-                  )}
+                  <div className="space-y-3">
+                    {isAssignee && task.status === TaskStatus.Assigned && !isExpired && (
+                      <Button
+                        variant="primary"
+                        onClick={() => handleAction("start")}
+                        disabled={actionLoading === "start"}
+                        isLoading={actionLoading === "start"}
+                        size="md"
+                      >
+                        Start Task
+                      </Button>
+                    )}
+                    
+                    {isAssignee && task.status === TaskStatus.InProgress && !isExpired && (
+                      <Button
+                        variant="primary"
+                        onClick={() => handleAction("complete")}
+                        disabled={actionLoading === "complete"}
+                        isLoading={actionLoading === "complete"}
+                        size="md"
+                      >
+                        Complete Task
+                      </Button>
+                    )}
+                    
+                    {isCreator && task.status === TaskStatus.Completed && (
+                      <Button
+                        variant="success"
+                        onClick={() => handleAction("approve")}
+                        disabled={actionLoading === "approve"}
+                        isLoading={actionLoading === "approve"}
+                        size="md"
+                      >
+                        Approve & Release Funds
+                      </Button>
+                    )}
+                    
+                    {isCreator && (task.status === TaskStatus.Assigned || task.status === TaskStatus.InProgress) && (
+                      <Button
+                        variant="secondary"
+                        onClick={() => handleAction("cancel")}
+                        disabled={actionLoading === "cancel"}
+                        isLoading={actionLoading === "cancel"}
+                        size="md"
+                      >
+                        Cancel Task
+                      </Button>
+                    )}
+                    
+                    {isCreator && task.status === TaskStatus.Expired && (
+                      <div className="flex gap-3 flex-wrap">
+                        <Button
+                          variant="secondary"
+                          onClick={() => handleAction("reclaim")}
+                          disabled={actionLoading === "reclaim"}
+                          isLoading={actionLoading === "reclaim"}
+                          size="md"
+                        >
+                          Reclaim Funds
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          onClick={() => handleAction("reassign")}
+                          disabled={actionLoading === "reassign"}
+                          isLoading={actionLoading === "reassign"}
+                          size="md"
+                        >
+                          Reassign Task
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -369,4 +386,3 @@ const TaskModal: React.FC<TaskModalProps> = ({ taskId, isOpen, onClose, onTaskUp
 };
 
 export default TaskModal;
-
