@@ -49,7 +49,16 @@ export function useSubscription(
           paging[id].lastLedgerStart = latestLedgerState.sequence;
         }
 
-        const requestParams: any = {
+        const requestParams: {
+          startLedger?: number;
+          filters: Array<{
+            contractIds: string[];
+            topics: string[][];
+            type: string;
+          }>;
+          limit: number;
+          cursor?: string;
+        } = {
           startLedger: !paging[id].pagingToken
             ? paging[id].lastLedgerStart
             : undefined,
@@ -68,7 +77,7 @@ export function useSubscription(
           requestParams.cursor = paging[id].pagingToken;
         }
 
-        const response = await server.getEvents(requestParams);
+        const response = await server.getEvents(requestParams as any);
 
         paging[id].pagingToken = undefined;
         if (response.latestLedger) {

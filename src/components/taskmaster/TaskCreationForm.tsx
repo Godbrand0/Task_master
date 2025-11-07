@@ -45,8 +45,14 @@ const TaskCreationForm: React.FC<TaskCreationFormProps> = ({ onTaskCreated }) =>
       console.log("Creating task with address:", address);
       console.log("signTransaction function available:", typeof signTransaction);
       
-      // Configure client with wallet credentials
-      taskMasterService.configureWallet(address, signTransaction);
+      // Configure client with wallet credentials - with proper check
+      if (signTransaction) {
+        taskMasterService.configureWallet(address, signTransaction);
+      } else {
+        console.error("No signTransaction function available");
+        alert("Wallet not properly connected. Please reconnect your wallet.");
+        return;
+      }
       
       const result = await taskMasterService.createTask(
         formData.title,
@@ -95,7 +101,7 @@ const TaskCreationForm: React.FC<TaskCreationFormProps> = ({ onTaskCreated }) =>
       <div className="p-4 min-h-full">
         <Heading as="h2" size="md">Create New Task</Heading>
         
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-4">
           <div>
             <Input
               id="title"

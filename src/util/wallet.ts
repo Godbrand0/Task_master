@@ -59,6 +59,7 @@ function getHorizonHost(mode: string) {
       return "http://localhost:8000";
     case "FUTURENET":
       return "https://horizon-futurenet.stellar.org";
+    case "Test SDF Network ; September 2015": // Add this specific case
     case "TESTNET":
       return "https://horizon-testnet.stellar.org";
     case "PUBLIC":

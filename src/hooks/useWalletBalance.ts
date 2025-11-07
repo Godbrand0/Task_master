@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useWallet } from "./useWallet";
 import { fetchBalance, type Balance } from "../util/wallet";
 
@@ -19,6 +19,7 @@ type WalletBalance = {
 
 export const useWalletBalance = () => {
   const { address } = useWallet();
+  const isFetching = useRef(false);
   const [state, setState] = useState<WalletBalance>({
     balances: [],
     xlm: "-",
@@ -28,8 +29,10 @@ export const useWalletBalance = () => {
   });
 
   const updateBalance = useCallback(async () => {
-    if (!address) return;
+    if (!address || isFetching.current) return;
+    
     try {
+      isFetching.current = true;
       setState((prev) => ({ ...prev, isLoading: true }));
       const balances = await fetchBalance(address);
       const isFunded = checkFunding(balances);
@@ -60,6 +63,8 @@ export const useWalletBalance = () => {
           error: new Error("Unknown error fetching balance."),
         });
       }
+    } finally {
+      isFetching.current = false;
     }
   }, [address]);
 

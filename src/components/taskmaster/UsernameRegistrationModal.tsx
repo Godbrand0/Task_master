@@ -28,8 +28,14 @@ export const UsernameRegistrationModal: React.FC<UsernameRegistrationModalProps>
       setIsRegistering(true);
       setError(null);
 
-      // Configure client with wallet credentials
-      taskMasterService.configureWallet(address, signTransaction);
+      // Configure client with wallet credentials - with proper check
+      if (signTransaction) {
+        taskMasterService.configureWallet(address, signTransaction);
+      } else {
+        console.error("No signTransaction function available");
+        setError("Wallet not properly connected. Please reconnect your wallet.");
+        return;
+      }
 
       // Register the username (passing address first, then username)
       await taskMasterService.registerUser(address, username.trim());
@@ -98,7 +104,7 @@ export const UsernameRegistrationModal: React.FC<UsernameRegistrationModalProps>
           </Button>
           <Button
             variant="primary"
-            onClick={handleRegister}
+            onClick={() => void handleRegister()}
             disabled={isRegistering || !username.trim()}
             isLoading={isRegistering}
             size="sm"

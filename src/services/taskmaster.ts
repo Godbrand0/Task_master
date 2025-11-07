@@ -32,9 +32,43 @@ export class TaskMasterService {
   }
 
   // Helper method to configure client with wallet credentials
-  configureWallet(publicKey: string, signTransaction: any) {
+  configureWallet(
+    publicKey: string,
+    signTransaction?: (xdr: string, opts?: {
+      networkPassphrase?: string;
+      address?: string;
+      path?: string;
+      submit?: boolean;
+      submitUrl?: string;
+    }) => Promise<{
+      signedTxXdr: string;
+      signerAddress?: string;
+    }>
+  ) {
     this.client.options.publicKey = publicKey;
-    this.client.options.signTransaction = signTransaction;
+    
+    if (!signTransaction) {
+      console.error("No signTransaction function provided");
+      return;
+    }
+    
+    // Create a wrapper function that extracts the signedTxXdr from the response
+    this.client.options.signTransaction = async (xdr: string, opts?: {
+      networkPassphrase?: string;
+      address?: string;
+      path?: string;
+      submit?: boolean;
+      submitUrl?: string;
+    }) => {
+      const result = await signTransaction(xdr, opts);
+      if (!result) {
+        throw new Error("Sign transaction returned undefined");
+      }
+      return {
+        signedTxXdr: result!.signedTxXdr,
+        signerAddress: result!.signerAddress
+      };
+    };
     console.log("Client configured with wallet:", {
       publicKey,
       hasSignTransaction: !!signTransaction
@@ -146,20 +180,32 @@ export class TaskMasterService {
     console.log("Getting user profile for:", address);
     
     try {
-      const result = await this.client.get_user_profile({
+      const tx = await this.client.get_user_profile({
         user: address,
       });
       
-      console.log("get_user_profile result:", result);
+      console.log("get_user_profile transaction:", tx);
       
-      if (result.result) {
+      // Simulate the transaction to get the result
+      const simResult = await tx.simulate();
+      console.log("get_user_profile simulation result:", simResult);
+      console.log("get_user_profile simulation result:", simResult);
+      console.log("Simulation result keys:", Object.keys(simResult));
+      console.log("Simulation result type:", typeof simResult);
+      
+      // Extract the actual result from simulation
+      if (simResult.result) {
+        const profileData = simResult.result;
+        console.log("Profile data from simulation:", profileData);
+        
         const profile = {
-          address: result.result.address || address,
-          username: result.result.username,
-          created_at: Number(result.result.created_at)
+          address: profileData.address || address,
+          username: profileData.username,
+          created_at: Number(profileData.created_at)
         };
         
         console.log("User profile:", profile);
+      
         return profile;
       }
       
@@ -209,7 +255,7 @@ export class TaskMasterService {
       console.log("get_task_applications result:", result);
       
       if (result.result) {
-        return result.result.map((app: any) => ({
+        return result.result.map((app: { applicant: string; message: string; applied_at: bigint }) => ({
           applicant: app.applicant,
           message: app.message,
           applied_at: Number(app.applied_at)

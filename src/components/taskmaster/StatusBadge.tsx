@@ -10,9 +10,9 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
   const getStatusVariant = (status: TaskStatus) => {
     switch (status) {
       case TaskStatus.Created:
-        return "default";
+        return "primary";
       case TaskStatus.Assigned:
-        return "info";
+        return "secondary";
       case TaskStatus.InProgress:
         return "warning";
       case TaskStatus.Completed:
@@ -26,12 +26,12 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
       case TaskStatus.Cancelled:
         return "error";
       default:
-        return "default";
+        return "primary";
     }
   };
 
   return (
-    <Badge variant={getStatusVariant(status) as any}>
+    <Badge variant={getStatusVariant(status) as "primary" | "secondary" | "warning" | "success" | "error" | "tertiary"}>
       {status}
     </Badge>
   );

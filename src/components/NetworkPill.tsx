@@ -19,7 +19,7 @@ const NetworkPill: React.FC = () => {
   const { network, address } = useWallet();
 
   // Check if there's a network mismatch
-  const walletNetwork = formatNetworkName(network ?? "");
+  const walletNetwork = formatNetworkName(network || "");
   const isNetworkMismatch = walletNetwork !== appNetwork;
 
   let title = "";

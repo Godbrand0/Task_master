@@ -32,9 +32,9 @@ const TaskModal: React.FC<TaskModalProps> = ({ taskId, isOpen, onClose, onTaskUp
 
   useEffect(() => {
     if (isOpen && taskId) {
-      loadTask();
+      void loadTask();
     }
-  }, [isOpen, taskId]);
+  }, [isOpen, taskId, loadTask]);
 
   // Manage body scroll when modal opens/closes
   useEffect(() => {
@@ -75,7 +75,14 @@ const TaskModal: React.FC<TaskModalProps> = ({ taskId, isOpen, onClose, onTaskUp
     try {
       setActionLoading(action);
       
-      taskMasterService.configureWallet(address, signTransaction);
+      // Configure client with wallet credentials - with proper check
+      if (signTransaction) {
+        taskMasterService.configureWallet(address, signTransaction);
+      } else {
+        console.error("No signTransaction function available");
+        alert("Wallet not properly connected. Please reconnect your wallet.");
+        return;
+      }
 
       switch (action) {
         case "start":
@@ -93,12 +100,13 @@ const TaskModal: React.FC<TaskModalProps> = ({ taskId, isOpen, onClose, onTaskUp
         case "reclaim":
           await taskMasterService.reclaimExpiredFunds(task.id, address);
           break;
-        case "reassign":
+        case "reassign": {
           const newAssignee = prompt("Enter new assignee address:");
           if (newAssignee) {
             await taskMasterService.reassignTask(task.id, address, newAssignee);
           }
           break;
+        }
       }
 
       await loadTask();
@@ -307,7 +315,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ taskId, isOpen, onClose, onTaskUp
                     {isAssignee && task.status === TaskStatus.Assigned && !isExpired && (
                       <Button
                         variant="primary"
-                        onClick={() => handleAction("start")}
+                        onClick={() => void handleAction("start")}
                         disabled={actionLoading === "start"}
                         isLoading={actionLoading === "start"}
                         size="md"
@@ -319,7 +327,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ taskId, isOpen, onClose, onTaskUp
                     {isAssignee && task.status === TaskStatus.InProgress && !isExpired && (
                       <Button
                         variant="primary"
-                        onClick={() => handleAction("complete")}
+                        onClick={() => void handleAction("complete")}
                         disabled={actionLoading === "complete"}
                         isLoading={actionLoading === "complete"}
                         size="md"
@@ -331,7 +339,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ taskId, isOpen, onClose, onTaskUp
                     {isCreator && task.status === TaskStatus.Completed && (
                       <Button
                         variant="success"
-                        onClick={() => handleAction("approve")}
+                        onClick={() => void handleAction("approve")}
                         disabled={actionLoading === "approve"}
                         isLoading={actionLoading === "approve"}
                         size="md"
@@ -343,7 +351,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ taskId, isOpen, onClose, onTaskUp
                     {isCreator && (task.status === TaskStatus.Assigned || task.status === TaskStatus.InProgress) && (
                       <Button
                         variant="secondary"
-                        onClick={() => handleAction("cancel")}
+                        onClick={() => void handleAction("cancel")}
                         disabled={actionLoading === "cancel"}
                         isLoading={actionLoading === "cancel"}
                         size="md"
@@ -356,7 +364,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ taskId, isOpen, onClose, onTaskUp
                       <div className="flex gap-3 flex-wrap">
                         <Button
                           variant="secondary"
-                          onClick={() => handleAction("reclaim")}
+                          onClick={() => void handleAction("reclaim")}
                           disabled={actionLoading === "reclaim"}
                           isLoading={actionLoading === "reclaim"}
                           size="md"
@@ -365,7 +373,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ taskId, isOpen, onClose, onTaskUp
                         </Button>
                         <Button
                           variant="secondary"
-                          onClick={() => handleAction("reassign")}
+                          onClick={() => void handleAction("reassign")}
                           disabled={actionLoading === "reassign"}
                           isLoading={actionLoading === "reassign"}
                           size="md"

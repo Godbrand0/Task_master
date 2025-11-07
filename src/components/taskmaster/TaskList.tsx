@@ -23,6 +23,7 @@ const TaskList: React.FC<TaskListProps> = ({ filter = "all", onApplyForTask }) =
 
   useEffect(() => {
     const loadTasks = async () => {
+      console.log("TaskList useEffect triggered - address:", address, "filter:", filter, "sortBy:", sortBy);
       if (!address) {
         setLoading(false);
         return;
@@ -78,15 +79,21 @@ const TaskList: React.FC<TaskListProps> = ({ filter = "all", onApplyForTask }) =
       }
     };
 
-    loadTasks();
+    void loadTasks();
   }, [address, filter, sortBy]);
 
   const handleTaskAction = async (action: string, taskId: number) => {
     if (!address) return;
 
     try {
-      // Configure client with wallet credentials
-      taskMasterService.configureWallet(address, signTransaction);
+      // Configure client with wallet credentials - with proper check
+      if (signTransaction) {
+        taskMasterService.configureWallet(address, signTransaction);
+      } else {
+        console.error("No signTransaction function available");
+        alert("Wallet not properly connected. Please reconnect your wallet.");
+        return;
+      }
 
       switch (action) {
         case "start":
@@ -217,7 +224,7 @@ const TaskList: React.FC<TaskListProps> = ({ filter = "all", onApplyForTask }) =
               <Select
                 id="sort"
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
+                onChange={(e) => setSortBy(e.target.value as "deadline" | "created" | "funding")}
                 fieldSize="sm"
               >
                 <option value="created">Created Date</option>
@@ -270,12 +277,12 @@ const TaskList: React.FC<TaskListProps> = ({ filter = "all", onApplyForTask }) =
               <TaskCard
                 key={task.id}
                 task={task}
-                onStartTask={() => handleTaskAction("start", task.id)}
-                onCompleteTask={() => handleTaskAction("complete", task.id)}
-                onApproveTask={() => handleTaskAction("approve", task.id)}
-                onCancelTask={() => handleTaskAction("cancel", task.id)}
-                onReclaimFunds={() => handleTaskAction("reclaim", task.id)}
-                onReassignTask={() => handleTaskAction("reassign", task.id)}
+                onStartTask={() => void handleTaskAction("start", task.id)}
+                onCompleteTask={() => void handleTaskAction("complete", task.id)}
+                onApproveTask={() => void handleTaskAction("approve", task.id)}
+                onCancelTask={() => void handleTaskAction("cancel", task.id)}
+                onReclaimFunds={() => void handleTaskAction("reclaim", task.id)}
+                onReassignTask={() => void handleTaskAction("reassign", task.id)}
                 onTaskClick={(taskId) => {
                   setSelectedTaskId(taskId);
                   setIsModalOpen(true);

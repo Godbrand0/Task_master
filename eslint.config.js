@@ -15,6 +15,7 @@ export default tseslint.config(
     "src/contracts/*",
     "!src/contracts/util.ts",
     "bindings/*",
+    "contracts/src/contracts/*",
   ]),
   {
     extends: [
@@ -31,7 +32,7 @@ export default tseslint.config(
       ecmaVersion: 2020,
       globals: globals.browser,
       parserOptions: {
-        project: ["./tsconfig.node.json", "./tsconfig.app.json"],
+        project: ["./tsconfig.node.json", "./tsconfig.app.json", "./contracts/src/contracts/tsconfig.json"],
         tsconfigRoot: import.meta.dirname,
       },
     },

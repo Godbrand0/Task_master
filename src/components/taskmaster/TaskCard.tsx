@@ -42,24 +42,27 @@ const TaskCard: React.FC<TaskCardProps> = ({
         setApplications(apps.length);
         
         // Get creator username
+        console.log("Fetching creator profile for:", task.creator);
+        console.log("Current creatorUsername state:", creatorUsername);
         const creatorProfile = await taskMasterService.getUserProfile(task.creator);
+        console.log("Creator profile result:", creatorProfile);
         if (creatorProfile) {
+          console.log("Setting creator username to:", creatorProfile.username);
           setCreatorUsername(creatorProfile.username);
+        } else {
+          console.log("No profile found for creator:", task.creator);
         }
       } catch (error) {
         console.error("Error fetching task data:", error);
       }
     };
 
-    fetchTaskData();
-  }, [task.id]);
+    void fetchTaskData();
+  }, [task.id, task.creator]);
   
   const isCreator = address === task.creator;
   const isAssignee = address === task.assignee;
   
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp * 1000).toLocaleDateString();
-  };
   
   const formatAmount = (amount: bigint) => {
     return (Number(amount) / 10000000).toFixed(7);
@@ -86,9 +89,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
     
     setIsApplying(true);
     try {
-      // Configure the service with wallet
-      taskMasterService.configureWallet(address, useWallet().signTransaction);
-      
       // Apply for the task
       await taskMasterService.applyForTask(task.id, address, "I'm interested in this task!");
       
@@ -236,7 +236,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
         {/* Compact Details */}
         <div className="flex justify-between items-center text-xs text-gray-500 mb-3">
           <div>
-            <span className="font-medium">Creator:</span> {creatorUsername || shortenContractId(task.creator)}
+            <span className="font-medium">Creator:</span> {creatorUsername || shortenContractId(task.creator)} (debug: username={creatorUsername}, address={task.creator})
           </div>
           <div>
             <span className="font-medium">Deadline:</span> {getTimeRemaining()}

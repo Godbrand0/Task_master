@@ -48,7 +48,7 @@ const TaskDetails: React.FC = () => {
       }
     };
 
-    loadTaskData();
+    void loadTaskData();
   }, [taskId]);
 
   const handleAction = async (action: string, applicantAddress?: string) => {
@@ -57,8 +57,14 @@ const TaskDetails: React.FC = () => {
     try {
       setActionLoading(action);
       
-      // Configure client with wallet credentials
-      taskMasterService.configureWallet(address, signTransaction);
+      // Configure client with wallet credentials - with proper check
+      if (signTransaction) {
+        taskMasterService.configureWallet(address, signTransaction);
+      } else {
+        console.error("No signTransaction function available");
+        alert("Wallet not properly connected. Please reconnect your wallet.");
+        return;
+      }
       
       switch (action) {
         case "start":
@@ -76,12 +82,13 @@ const TaskDetails: React.FC = () => {
         case "reclaim":
           await taskMasterService.reclaimExpiredFunds(task.id, address);
           break;
-        case "reassign":
+        case "reassign": {
           const newAssignee = prompt("Enter new assignee address:");
           if (newAssignee) {
             await taskMasterService.reassignTask(task.id, address, newAssignee);
           }
           break;
+        }
         case "assign":
           if (applicantAddress) {
             await taskMasterService.assignToApplicant(task.id, address, applicantAddress);
@@ -220,7 +227,7 @@ const TaskDetails: React.FC = () => {
             {isAssignee && task.status === TaskStatus.Assigned && !isExpired && (
               <Button
                 variant="primary"
-                onClick={() => handleAction("start")}
+                onClick={() => void handleAction("start")}
                 disabled={actionLoading === "start"}
                 isLoading={actionLoading === "start"}
                 size="md"
@@ -232,7 +239,7 @@ const TaskDetails: React.FC = () => {
             {isAssignee && task.status === TaskStatus.InProgress && !isExpired && (
               <Button
                 variant="primary"
-                onClick={() => handleAction("complete")}
+                onClick={() => void handleAction("complete")}
                 disabled={actionLoading === "complete"}
                 isLoading={actionLoading === "complete"}
                 size="md"
@@ -244,7 +251,7 @@ const TaskDetails: React.FC = () => {
             {isCreator && task.status === TaskStatus.Completed && (
               <Button
                 variant="success"
-                onClick={() => handleAction("approve")}
+                onClick={() => void handleAction("approve")}
                 disabled={actionLoading === "approve"}
                 isLoading={actionLoading === "approve"}
                 size="md"
@@ -256,7 +263,7 @@ const TaskDetails: React.FC = () => {
             {isCreator && (task.status === TaskStatus.Assigned || task.status === TaskStatus.InProgress) && (
               <Button
                 variant="secondary"
-                onClick={() => handleAction("cancel")}
+                onClick={() => void handleAction("cancel")}
                 disabled={actionLoading === "cancel"}
                 isLoading={actionLoading === "cancel"}
                 size="md"
@@ -269,7 +276,7 @@ const TaskDetails: React.FC = () => {
               <div className="flex gap-4">
                 <Button
                   variant="secondary"
-                  onClick={() => handleAction("reclaim")}
+                  onClick={() => void handleAction("reclaim")}
                   disabled={actionLoading === "reclaim"}
                   isLoading={actionLoading === "reclaim"}
                   size="md"
@@ -278,7 +285,7 @@ const TaskDetails: React.FC = () => {
                 </Button>
                 <Button
                   variant="secondary"
-                  onClick={() => handleAction("reassign")}
+                  onClick={() => void handleAction("reassign")}
                   disabled={actionLoading === "reassign"}
                   isLoading={actionLoading === "reassign"}
                   size="md"
@@ -319,7 +326,7 @@ const TaskDetails: React.FC = () => {
                     <Button
                       variant="primary"
                       size="sm"
-                      onClick={() => handleAction("assign", application.applicant)}
+                      onClick={() => void handleAction("assign", application.applicant)}
                       disabled={actionLoading === `assign-${index}`}
                       isLoading={actionLoading === `assign-${index}`}
                     >
@@ -336,7 +343,7 @@ const TaskDetails: React.FC = () => {
       <div className="text-center">
         <Button
           variant="tertiary"
-          onClick={() => navigate("/taskmaster")}
+          onClick={() => void navigate("/taskmaster")}
           size="md"
         >
           ← Back to Dashboard
