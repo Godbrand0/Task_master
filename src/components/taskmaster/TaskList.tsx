@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Heading, Text, Select, Button } from "@stellar/design-system";
 import { Task } from "../../util/contract";
 import { useWallet } from "../../hooks/useWallet";
 import { taskMasterService } from "../../services/taskmaster";
 import TaskCard from "./TaskCard";
-import TaskModal from "./TaskModal";
 
 interface TaskListProps {
   filter?: "all" | "created" | "assigned";
@@ -13,12 +13,11 @@ interface TaskListProps {
 }
 
 const TaskList: React.FC<TaskListProps> = ({ filter = "all", onApplyForTask }) => {
+  const navigate = useNavigate();
   const { address, signTransaction } = useWallet();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<"deadline" | "created" | "funding">("created");
-  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   useEffect(() => {
@@ -34,19 +33,22 @@ const TaskList: React.FC<TaskListProps> = ({ filter = "all", onApplyForTask }) =
         let taskIds: number[] = [];
 
         switch (filter) {
-          case "created":
+          case "created": {
             taskIds = await taskMasterService.getUserTasks(address);
             break;
-          case "assigned":
+          }
+          case "assigned": {
             taskIds = await taskMasterService.getAssignedTasks(address);
             break;
-          default:
+          }
+          default: {
             // For "all", we'll get a limited number for now
             // In a real app, you might implement pagination
             const count = await taskMasterService.getTaskCount();
             const maxTasks = Math.min(count, 20); // Limit to 20 most recent
             taskIds = Array.from({ length: maxTasks }, (_, i) => count - i);
             break;
+          }
         }
 
         const taskDetails = await Promise.all(
@@ -111,12 +113,15 @@ const TaskList: React.FC<TaskListProps> = ({ filter = "all", onApplyForTask }) =
         case "reclaim":
           await taskMasterService.reclaimExpiredFunds(taskId, address);
           break;
-        case "reassign":
+        case "reassign": {
           // For reassignment, we'd need a dialog to get new assignee
           const newAssignee = prompt("Enter new assignee address:");
           if (newAssignee) {
             await taskMasterService.reassignTask(taskId, address, newAssignee);
           }
+          break;
+        }
+        default:
           break;
       }
 
@@ -252,7 +257,7 @@ const TaskList: React.FC<TaskListProps> = ({ filter = "all", onApplyForTask }) =
               </Text>
               {filter !== "created" && (
                 <Button
-                  onClick={() => window.location.href = "/taskmaster?tab=create"}
+                  onClick={() => void (window.location.href = "/taskmaster?tab=create")}
                   variant="primary"
                   size="md"
                 >
@@ -284,29 +289,12 @@ const TaskList: React.FC<TaskListProps> = ({ filter = "all", onApplyForTask }) =
                 onReclaimFunds={() => void handleTaskAction("reclaim", task.id)}
                 onReassignTask={() => void handleTaskAction("reassign", task.id)}
                 onTaskClick={(taskId) => {
-                  setSelectedTaskId(taskId);
-                  setIsModalOpen(true);
+                  navigate(`/taskmaster/task/${taskId}`);
                 }}
                 onApplyForTask={onApplyForTask}
               />
             ))}
           </div>
-
-          {/* Task Modal */}
-          {selectedTaskId !== null && (
-            <TaskModal
-              taskId={selectedTaskId}
-              isOpen={isModalOpen}
-              onClose={() => {
-                setIsModalOpen(false);
-                setSelectedTaskId(null);
-              }}
-              onTaskUpdated={() => {
-                // Reload tasks after action
-                window.location.reload();
-              }}
-            />
-          )}
         </>
       )}
     </div>
