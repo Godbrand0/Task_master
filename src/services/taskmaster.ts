@@ -65,8 +65,8 @@ export class TaskMasterService {
         throw new Error("Sign transaction returned undefined");
       }
       return {
-        signedTxXdr: result!.signedTxXdr,
-        signerAddress: result!.signerAddress
+        signedTxXdr: result.signedTxXdr,
+        signerAddress: result.signerAddress
       };
     };
     console.log("Client configured with wallet:", {
@@ -130,7 +130,7 @@ export class TaskMasterService {
   async initialize(tokenAddress?: string, deployerAddress?: string) {
     // Use default values if not provided
     const tokenAddr = tokenAddress || NATIVE_TOKEN_CONTRACT_ID;
-    const deployerAddr = deployerAddress || (await this.getDefaultDeployer());
+    const deployerAddr = deployerAddress || this.getDefaultDeployer();
     
     const result = await this.client.initialize({
       token: tokenAddr,
@@ -141,7 +141,7 @@ export class TaskMasterService {
   }
 
   // Helper method to get default deployer address
-  private async getDefaultDeployer(): Promise<string> {
+  private getDefaultDeployer(): string {
     // In a real implementation, this might get the connected wallet's public key
     // For now, return a default value or throw an error if not configured
     const defaultDeployer = import.meta.env.PUBLIC_DEFAULT_DEPLOYER_ADDRESS;
@@ -536,7 +536,7 @@ export class TaskMasterService {
             try {
               fundingAmount = BigInt(fundingMatch[1]);
               console.log("Extracted funding_amount from error:", fundingAmount.toString());
-            } catch (e) {
+            } catch {
               console.warn("Failed to parse funding amount:", fundingMatch[1]);
             }
           }
@@ -593,7 +593,7 @@ export class TaskMasterService {
             deadline: deadline ? Number(deadline) : 0,
             creator,
             assignee,
-            status: this.convertTaskStatus({ tag: statusTag as any, values: undefined }),
+            status: this.convertTaskStatus({ tag: statusTag as "Created" | "Assigned" | "InProgress" | "Completed" | "Approved" | "FundsReleased" | "Expired" | "Cancelled", values: undefined }),
             created_at: created ? Number(created) : 0,
             completed_at: undefined,
             creator_approved: false,
