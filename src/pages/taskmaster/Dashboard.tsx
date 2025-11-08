@@ -184,6 +184,37 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleApplyForTask = async (taskId: number) => {
+    
+    if (!address) {
+      alert("Please connect your wallet to apply for a task.");
+      return;
+    }
+
+    if (!userProfile) {
+      setShowRegistrationModal(true);
+      return;
+    }
+
+    try {
+      if (signTransaction) {
+        taskMasterService.configureWallet(address, signTransaction);
+      } else {
+        console.error("No signTransaction function available");
+        alert("Wallet not properly connected. Please reconnect your wallet.");
+        return;
+      }
+      
+      await taskMasterService.applyForTask(taskId);
+      alert("You have successfully applied for the task!");
+      // Optionally, refresh the task list or specific task
+      window.location.reload();
+    } catch (error) {
+      console.error("Error applying for task:", error);
+      alert("Failed to apply for the task. Please try again.");
+    }
+  };
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get("tab");
@@ -503,7 +534,7 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
 
-            <TaskList filter={taskFilter} />
+            <TaskList filter={taskFilter} onApplyForTask={handleApplyForTask} />
           </div>
         )}
 

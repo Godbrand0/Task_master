@@ -91,6 +91,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
     try {
       // Apply for the task
       await taskMasterService.applyForTask(task.id, address, "I'm interested in this task!");
+
       
       // Refresh applications count
       const apps = await taskMasterService.getTaskApplications(task.id);
