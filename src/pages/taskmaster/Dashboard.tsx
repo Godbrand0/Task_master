@@ -185,7 +185,6 @@ const Dashboard: React.FC = () => {
   };
 
   const handleApplyForTask = async (taskId: number) => {
-    
     if (!address) {
       alert("Please connect your wallet to apply for a task.");
       return;
@@ -205,7 +204,7 @@ const Dashboard: React.FC = () => {
         return;
       }
       
-      await taskMasterService.applyForTask(taskId);
+      await taskMasterService.applyForTask(taskId, address, "I'm interested in this task!");
       alert("You have successfully applied for the task!");
       // Optionally, refresh the task list or specific task
       window.location.reload();

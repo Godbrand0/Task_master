@@ -28,10 +28,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onTaskClick,
   onApplyForTask,
 }) => {
-  const { address, userProfile } = useWallet();
+  const { address } = useWallet();
   const [applications, setApplications] = useState<number>(0);
   const [creatorUsername, setCreatorUsername] = useState<string>('');
-  const [isApplying, setIsApplying] = useState(false);
 
   // Fetch applications count and creator username when component mounts
   useEffect(() => {
@@ -83,25 +82,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
     if (hours > 0) return `${hours} hour${hours !== 1 ? 's' : ''} left`;
     return "Less than 1 hour left";
   };
-  
-  const handleApplyForTask = async () => {
-    if (!address || !onApplyForTask) return;
-    
-    setIsApplying(true);
-    try {
-      // Apply for the task
-      await taskMasterService.applyForTask(task.id, address, "I'm interested in this task!");
-
-      
-      // Refresh applications count
-      const apps = await taskMasterService.getTaskApplications(task.id);
-      setApplications(apps.length);
-    } catch (error) {
-      console.error("Error applying for task:", error);
-    } finally {
-      setIsApplying(false);
-    }
-  };
 
   const renderActions = () => {
     const actions = [];
@@ -113,10 +93,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
           key="apply"
           size="sm"
           variant="primary"
-          onClick={handleApplyForTask}
-          disabled={isApplying || !userProfile}
+          onClick={() => onApplyForTask?.(task.id)}
         >
-          {isApplying ? 'Applying...' : 'Apply'}
+          Apply
         </Button>
       );
     }

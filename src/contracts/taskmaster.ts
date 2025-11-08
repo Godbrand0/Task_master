@@ -1,5 +1,5 @@
 import * as Client from 'taskmaster';
-import { rpcUrl } from './util';
+import { rpcUrl } from '../util/contract';
 
 export default new Client.Client({
   networkPassphrase: 'Standalone Network ; February 2017',
