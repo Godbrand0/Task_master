@@ -24,7 +24,7 @@ if (typeof window !== 'undefined') {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CCUSVPOGVKXGS6WMRWLGE2TXU4JQJLRDYJL5WMYHMINQP3X3NR22NOHJ",
+    contractId: "CCHOWDIQIHI6OV5JUXW5FKGDSINSYO665A66BHPZE5DSH4JF75IE46S3",
   }
 } as const
 
@@ -47,7 +47,7 @@ export interface TaskApplication {
 
 
 export interface Task {
-  applications: TaskApplication[];
+  applications: Array<TaskApplication>;
   assignee: Option<string>;
   assignee_approved: boolean;
   completed_at: Option<u64>;
@@ -192,7 +192,7 @@ export interface Client {
      * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
      */
     simulate?: boolean;
-  }) => Promise<AssembledTransaction<TaskApplication[]>>
+  }) => Promise<AssembledTransaction<Array<TaskApplication>>>
 
   /**
    * Construct and simulate a assign_to_applicant transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -553,7 +553,7 @@ export interface Client {
      * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
      */
     simulate?: boolean;
-  }) => Promise<AssembledTransaction<u64[]>>
+  }) => Promise<AssembledTransaction<Array<u64>>>
 
   /**
    * Construct and simulate a get_assigned_tasks transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -580,7 +580,7 @@ export interface Client {
      * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
      */
     simulate?: boolean;
-  }) => Promise<AssembledTransaction<u64[]>>
+  }) => Promise<AssembledTransaction<Array<u64>>>
 
   /**
    * Construct and simulate a get_task_count transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -654,7 +654,7 @@ export class Client extends ContractClient {
         register_user: this.txFromJSON<null>,
         get_user_profile: this.txFromJSON<Option<UserProfile>>,
         apply_for_task: this.txFromJSON<null>,
-        get_task_applications: this.txFromJSON<TaskApplication[]>,
+        get_task_applications: this.txFromJSON<Array<TaskApplication>>,
         assign_to_applicant: this.txFromJSON<null>,
         create_task: this.txFromJSON<u64>,
         assign_task: this.txFromJSON<null>,
@@ -668,8 +668,8 @@ export class Client extends ContractClient {
         get_platform_fees: this.txFromJSON<i128>,
         reassign_task: this.txFromJSON<null>,
         get_task: this.txFromJSON<Task>,
-        get_user_tasks: this.txFromJSON<u64[]>,
-        get_assigned_tasks: this.txFromJSON<u64[]>,
+        get_user_tasks: this.txFromJSON<Array<u64>>,
+        get_assigned_tasks: this.txFromJSON<Array<u64>>,
         get_task_count: this.txFromJSON<u64>
   }
 }
