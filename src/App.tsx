@@ -1,7 +1,7 @@
-import { Button, Icon, Layout } from "@stellar/design-system";
+import { Layout } from "@stellar/design-system";
 import styles from "./App.module.css";
 import ConnectAccount from "./components/ConnectAccount.tsx";
-import { Routes, Route, Outlet, Navigate, NavLink } from "react-router-dom";
+import { Routes, Route, Outlet, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
 import Dashboard from "./pages/taskmaster/Dashboard";
 
