@@ -2,7 +2,7 @@ import {
   Client,
   Task as ContractTask,
   TaskStatus as ContractTaskStatus,
-} from "../contracts/src";
+} from "../contracts/src/index";
 import {
   TASKMASTER_CONTRACT_ID,
   NATIVE_TOKEN_CONTRACT_ID,

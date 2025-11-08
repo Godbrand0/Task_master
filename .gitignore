@@ -3,10 +3,10 @@ target
 .soroban
 
 # project identity and alias files will be in .config/stellar
-.config
+
 
 # test snapshot folders from sample contracts
-test_snapshots
+
 
 # build output
 dist
@@ -41,5 +41,5 @@ packages/*
 !packages/.gitkeep
 
 # generated contract client imports
-src/contracts/*
+
 !src/contracts/util.ts
