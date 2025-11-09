@@ -10,8 +10,8 @@ const AppLayout: React.FC = () => (
   <main className={styles.appMain}>
     <div className={styles.appHeader}>
       <Layout.Header
-        projectId="TASKMASTER"
-        projectTitle="TASKMASTER"
+        projectId="Taskify"
+        projectTitle="Taskify"
         contentRight={
           <>
             <ConnectAccount />

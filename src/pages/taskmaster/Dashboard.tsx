@@ -9,6 +9,26 @@ import { UsernameRegistrationModal } from "../../components/taskmaster/UsernameR
 import { taskMasterService } from "../../services/taskmaster";
 import { useParams, useNavigate } from "react-router-dom";
 
+/** Small stat card component (top-level, not nested) */
+const StatCard: React.FC<{
+  title: string;
+  value: string | number;
+  subtitle?: string;
+  isLoading?: boolean;
+}> = ({ title, value, subtitle, isLoading }) => (
+  <div className="bg-white rounded-lg shadow p-4">
+    <Text as="p" size="sm" className="text-gray-600 mb-1">{title}</Text>
+    {isLoading ? (
+      <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
+    ) : (
+      <>
+        <Text as="p" size="xl" className="font-bold text-gray-900">{value}</Text>
+        {subtitle && <Text as="p" size="sm" className="text-gray-500">{subtitle}</Text>}
+      </>
+    )}
+  </div>
+);
+
 interface DashboardStats {
   totalTasks: number;
   createdTasks: number;
@@ -34,8 +54,8 @@ const Dashboard: React.FC = () => {
   };
   const [activeTab, setActiveTab] = useState<"overview" | "tasks" | "create">("overview");
   const [taskFilter, setTaskFilter] = useState<"all" | "created" | "assigned">("all");
-  const [platformFees, setPlatformFees] = useState<bigint>(0n);
-  const [loadingFees, setLoadingFees] = useState(false);
+  const [, setPlatformFees] = useState<bigint>(0n);
+  const [, setLoadingFees] = useState(false);
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
     totalTasks: 0,
@@ -137,7 +157,7 @@ const Dashboard: React.FC = () => {
         await taskMasterService.getTaskCount();
         console.log("Contract is already initialized");
         return;
-      } catch (error) {
+      } catch {
         console.log("Contract might not be initialized, attempting initialization...");
       }
 
@@ -160,29 +180,6 @@ const Dashboard: React.FC = () => {
     window.location.reload();
   };
 
-  const handleWithdrawFees = async () => {
-    if (!address) return;
-
-    try {
-      // Configure client with wallet credentials - with proper check
-      if (signTransaction) {
-        taskMasterService.configureWallet(address, signTransaction);
-      } else {
-        console.error("No signTransaction function available");
-        alert("Wallet not properly connected. Please reconnect your wallet.");
-        return;
-      }
-      const result = await taskMasterService.withdrawPlatformFees(address);
-
-      if (result) {
-        alert("Platform fees withdrawn successfully!");
-        void loadPlatformFees();
-      }
-    } catch (error) {
-      console.error("Error withdrawing platform fees:", error);
-      alert("Failed to withdraw platform fees. Please try again.");
-    }
-  };
 
   const handleApplyForTask = async (taskId: number) => {
     if (!address) {
@@ -226,20 +223,31 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     console.log("Dashboard useEffect triggered - address:", address);
-    if (address && !getIsInitialized()) {
-      console.log("Initializing contract and loading data...");
-      void initializeContract().then(() => {
-        void loadPlatformFees();
-        void loadDashboardStats();
-        // Mark as initialized after successful initialization
-        setIsInitialized(true);
-      }).catch((error) => {
-        console.error("Contract initialization failed:", error);
-        // Still mark as initialized attempt to prevent repeated attempts
-        setIsInitialized(true);
-      });
-    }
-  }, [address]); // Only depend on address, not on callback functions
+    if (!address) return;
+
+    const doFetch = async () => {
+      // Initialize once if not already done
+      if (!getIsInitialized()) {
+        console.log("Initializing contract and loading data...");
+        try {
+          await initializeContract();
+        } catch (error) {
+          console.error("Contract initialization failed:", error);
+        } finally {
+          // Mark attempt done to avoid repeated init attempts
+          setIsInitialized(true);
+        }
+      }
+
+      // Always fetch latest details on page load / address change
+      await Promise.all([
+        loadPlatformFees(),
+        loadDashboardStats(),
+      ]);
+    };
+
+    void doFetch();
+  }, [address, initializeContract, loadPlatformFees, loadDashboardStats, getIsInitialized, setIsInitialized]);
 
   // Reset initialization flag when address changes
   useEffect(() => {
@@ -281,27 +289,9 @@ const Dashboard: React.FC = () => {
   }
 
   const formatAmount = (amount: bigint) => {
-    return (Number(amount) / 10000000).toFixed(7);
+    return (Number(amount) / 10000000).toFixed(2);
   };
 
-  const StatCard = ({ title, value, subtitle, isLoading }: { 
-    title: string; 
-    value: string | number; 
-    subtitle?: string;
-    isLoading?: boolean;
-  }) => (
-    <div className="bg-white rounded-lg shadow p-4">
-      <Text as="p" size="sm" className="text-gray-600 mb-1">{title}</Text>
-      {isLoading ? (
-        <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
-      ) : (
-        <>
-          <Text as="p" size="xl" className="font-bold text-gray-900">{value}</Text>
-          {subtitle && <Text as="p" size="sm" className="text-gray-500">{subtitle}</Text>}
-        </>
-      )}
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -310,10 +300,10 @@ const Dashboard: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-6">
             <Heading as="h1" size="xl" className="text-gray-900">
-              TaskMaster Dashboard
+              Taskify Dashboard
             </Heading>
             <Text as="p" size="md" className="text-gray-600 mt-2">
-              Manage your tasks and bounties on the Stellar network
+              Manage your tasks and bounties.
             </Text>
           </div>
         </div>
@@ -388,7 +378,7 @@ const Dashboard: React.FC = () => {
                 isLoading={loadingStats}
               />
               <StatCard 
-                title="Completed" 
+                title="Completed by you" 
                 value={stats.completedTasks} 
                 isLoading={loadingStats}
               />
@@ -396,7 +386,7 @@ const Dashboard: React.FC = () => {
 
             {/* Platform Fees and Funding */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white rounded-lg shadow p-6">
+              {/* <div className="bg-white rounded-lg shadow p-6">
                 <Heading as="h3" size="md" className="mb-4">Platform Fees</Heading>
                 <div className="space-y-4">
                   <div>
@@ -418,12 +408,12 @@ const Dashboard: React.FC = () => {
                     Withdraw Fees
                   </Button>
                 </div>
-              </div>
+              </div> */}
 
               <div className="bg-white rounded-lg shadow p-6">
-                <Heading as="h3" size="md" className="mb-4">Total Funding</Heading>
+                <Heading as="h3" size="md" className="mb-4">Total Spent</Heading>
                 <div>
-                  <Text as="p" size="sm" className="text-gray-600">Your Created Tasks</Text>
+                 
                   {loadingStats ? (
                     <div className="h-8 bg-gray-200 rounded animate-pulse mt-1"></div>
                   ) : (
@@ -533,7 +523,10 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
 
-            <TaskList filter={taskFilter} onApplyForTask={handleApplyForTask} />
+            <TaskList
+              filter={taskFilter}
+              onApplyForTask={(taskId) => { void handleApplyForTask(taskId); }}
+            />
           </div>
         )}
 

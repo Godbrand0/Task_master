@@ -2,14 +2,13 @@ import React from "react";
 import { NETWORK_PASSPHRASE } from "../util/contract";
 import FundAccountButton from "./FundAccountButton";
 import { WalletButton } from "./WalletButton";
-import NetworkPill from "./NetworkPill";
 
 const ConnectAccount: React.FC = () => {
   return (
     <div className="flex flex-row items-center gap-2.5 align-middle">
       <WalletButton />
       {NETWORK_PASSPHRASE !== "Public Global Stellar Network ; September 2015" && <FundAccountButton />}
-      <NetworkPill />
+
     </div>
   );
 };

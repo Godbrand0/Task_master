@@ -40,19 +40,19 @@ const TaskCard: React.FC<TaskCardProps> = ({
         const apps = await taskMasterService.getTaskApplications(task.id);
         setApplications(apps.length);
         
-        // Get creator username
-        console.log("Fetching creator profile for:", task.creator);
-        console.log("Current creatorUsername state:", creatorUsername);
+        // // Get creator username
+        // console.log("Fetching creator profile for:", task.creator);
+        // console.log("Current creatorUsername state:", creatorUsername);
         const creatorProfile = await taskMasterService.getUserProfile(task.creator);
-        console.log("Creator profile result:", creatorProfile);
+        // console.log("Creator profile result:", creatorProfile);
         if (creatorProfile) {
-          console.log("Setting creator username to:", creatorProfile.username);
+          // console.log("Setting creator username to:", creatorProfile.username);
           setCreatorUsername(creatorProfile.username);
         } else {
-          console.log("No profile found for creator:", task.creator);
+          // console.log("No profile found for creator:", task.creator);
         }
-      } catch (error) {
-        console.error("Error fetching task data:", error);
+      } catch {
+        // Error fetching task data (ignored to avoid noisy logs)
       }
     };
 
@@ -64,7 +64,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   
   
   const formatAmount = (amount: bigint) => {
-    return (Number(amount) / 10000000).toFixed(7);
+    return (Number(amount) / 10000000).toFixed(2);
   };
   
   const isExpired = Date.now() / 1000 > task.deadline;
@@ -216,7 +216,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
         {/* Compact Details */}
         <div className="flex justify-between items-center text-xs text-gray-500 mb-3">
           <div>
-            <span className="font-medium">Creator:</span> {creatorUsername || shortenContractId(task.creator)} (debug: username={creatorUsername}, address={task.creator})
+            <span className="font-medium">Creator:</span> {creatorUsername || shortenContractId(task.creator)} 
           </div>
           <div>
             <span className="font-medium">Deadline:</span> {getTimeRemaining()}

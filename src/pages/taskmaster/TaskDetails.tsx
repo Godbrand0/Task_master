@@ -120,7 +120,7 @@ const TaskDetails: React.FC = () => {
   };
 
   const formatAmount = (amount: bigint) => {
-    return (Number(amount) / 10000000).toFixed(7);
+    return (Number(amount) / 10000000).toFixed(2);
   };
 
   const isCreator = address === task?.creator;
@@ -148,11 +148,11 @@ const TaskDetails: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <Card>
         <div className="p-6">
-          <div className="flex justify-between items-start mb-4">
-            <Heading as="h1" size="xl">{task.title}</Heading>
+          <div className="flex justify-between items-start mb-1">
+            <Heading as="h1" size="xl" className="font-bold">{task.title}</Heading>
             <StatusBadge status={task.status} />
           </div>
           
@@ -221,7 +221,7 @@ const TaskDetails: React.FC = () => {
 
       <Card>
         <div className="p-6">
-          <Heading as="h2" size="lg">Actions</Heading>
+          <Heading as="h2" size="md">Actions</Heading>
           
           <div className="flex flex-col gap-4">
             {isAssignee && task.status === TaskStatus.Assigned && !isExpired && (
@@ -340,7 +340,8 @@ const TaskDetails: React.FC = () => {
         </Card>
       )}
 
-      <div className="text-center">
+      <div className=" mx-auto">
+       
         <Button
           variant="tertiary"
           onClick={() => void navigate("/taskmaster")}
