@@ -9,7 +9,7 @@ import TaskCard from "./TaskCard";
 interface TaskListProps {
   filter?: "all" | "created" | "assigned";
   onTaskAction?: (action: string, taskId: number) => void;
-  onApplyForTask?: (taskId: number) => void;
+  onApplyForTask?: (taskId: number) => Promise<boolean>;
 }
 
 const TaskList: React.FC<TaskListProps> = ({ filter = "all", onApplyForTask }) => {

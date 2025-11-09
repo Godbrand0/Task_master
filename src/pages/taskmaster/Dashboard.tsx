@@ -182,15 +182,15 @@ const Dashboard: React.FC = () => {
   };
 
 
-  const handleApplyForTask = async (taskId: number) => {
+  const handleApplyForTask = async (taskId: number): Promise<boolean> => {
     if (!address) {
       alert("Please connect your wallet to apply for a task.");
-      return;
+      return false;
     }
 
     if (!userProfile) {
       setShowRegistrationModal(true);
-      return;
+      return false;
     }
 
     try {
@@ -199,16 +199,18 @@ const Dashboard: React.FC = () => {
       } else {
         console.error("No signTransaction function available");
         alert("Wallet not properly connected. Please reconnect your wallet.");
-        return;
+        return false;
       }
       
       await taskMasterService.applyForTask(taskId, address, "I'm interested in this task!");
       alert("You have successfully applied for the task!");
       // Refresh dashboard stats instead of reloading the page
       void loadDashboardStats();
+      return true;
     } catch (error) {
       console.error("Error applying for task:", error);
       alert("Failed to apply for the task. Please try again.");
+      return false;
     }
   };
 
@@ -526,7 +528,7 @@ const Dashboard: React.FC = () => {
 
             <TaskList
               filter={taskFilter}
-              onApplyForTask={(taskId) => { void handleApplyForTask(taskId); }}
+              onApplyForTask={handleApplyForTask}
             />
           </div>
         )}

@@ -14,7 +14,7 @@ interface TaskCardProps {
   onReclaimFunds?: (taskId: number) => void;
   onReassignTask?: (taskId: number) => void;
   onTaskClick?: (taskId: number) => void;
-  onApplyForTask?: (taskId: number) => void;
+  onApplyForTask?: (taskId: number) => Promise<boolean>;
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({
@@ -93,7 +93,13 @@ const TaskCard: React.FC<TaskCardProps> = ({
           key="apply"
           size="sm"
           variant="primary"
-          onClick={() => onApplyForTask?.(task.id)}
+          onClick={async () => {
+            if (!onApplyForTask) return;
+            const ok = await onApplyForTask(task.id);
+            if (ok) {
+              setApplications((prev) => prev + 1);
+            }
+          }}
         >
           Apply
         </Button>

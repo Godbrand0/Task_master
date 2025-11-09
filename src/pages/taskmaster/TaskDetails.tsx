@@ -211,7 +211,7 @@ const TaskDetails: React.FC = () => {
             </div>
           )}
 
-          {isExpired && task.status !== TaskStatus.Expired && task.status !== TaskStatus.Cancelled && (
+          {isExpired && ![TaskStatus.Expired, TaskStatus.Cancelled, TaskStatus.Completed, TaskStatus.Approved, TaskStatus.FundsReleased].includes(task.status) && (
             <Text as="p" size="sm" className="text-red-600 mb-4">
               ⚠️ This task has expired!
             </Text>
