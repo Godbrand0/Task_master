@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Heading, Text, Button } from "@stellar/design-system";
 import { useWallet } from "../../hooks/useWallet";
 import { TaskStatus } from "../../util/contract";
@@ -43,15 +43,15 @@ const Dashboard: React.FC = () => {
   const { taskId } = useParams<{ taskId?: string }>();
   
   // Check if contract was already initialized for this address
-  const getIsInitialized = () => {
+  const getIsInitialized = useCallback(() => {
     const key = `contract_initialized_${address}`;
     return localStorage.getItem(key) === 'true';
-  };
+  }, [address]);
   
-  const setIsInitialized = (value: boolean) => {
+  const setIsInitialized = useCallback((value: boolean) => {
     const key = `contract_initialized_${address}`;
     localStorage.setItem(key, value.toString());
-  };
+  }, [address]);
   const [activeTab, setActiveTab] = useState<"overview" | "tasks" | "create">("overview");
   const [taskFilter, setTaskFilter] = useState<"all" | "created" | "assigned">("all");
   const [, setPlatformFees] = useState<bigint>(0n);
@@ -65,6 +65,7 @@ const Dashboard: React.FC = () => {
     totalFunding: 0n,
   });
   const [loadingStats, setLoadingStats] = useState(false);
+  const fetchingRef = useRef(false);
 
   const loadPlatformFees = useCallback(async () => {
     if (!address) return;
@@ -177,7 +178,7 @@ const Dashboard: React.FC = () => {
     setActiveTab("tasks");
     setTaskFilter("created");
     void loadDashboardStats(); // Refresh stats
-    window.location.reload();
+    void loadPlatformFees();
   };
 
 
@@ -203,8 +204,8 @@ const Dashboard: React.FC = () => {
       
       await taskMasterService.applyForTask(taskId, address, "I'm interested in this task!");
       alert("You have successfully applied for the task!");
-      // Optionally, refresh the task list or specific task
-      window.location.reload();
+      // Refresh dashboard stats instead of reloading the page
+      void loadDashboardStats();
     } catch (error) {
       console.error("Error applying for task:", error);
       alert("Failed to apply for the task. Please try again.");
@@ -226,38 +227,38 @@ const Dashboard: React.FC = () => {
     if (!address) return;
 
     const doFetch = async () => {
-      // Initialize once if not already done
-      if (!getIsInitialized()) {
-        console.log("Initializing contract and loading data...");
-        try {
-          await initializeContract();
-        } catch (error) {
-          console.error("Contract initialization failed:", error);
-        } finally {
-          // Mark attempt done to avoid repeated init attempts
-          setIsInitialized(true);
-        }
+      if (fetchingRef.current) {
+        console.log("Fetch already in progress, skipping");
+        return;
       }
+      fetchingRef.current = true;
+      try {
+        // Initialize once if not already done
+        if (!getIsInitialized()) {
+          console.log("Initializing contract and loading data...");
+          try {
+            await initializeContract();
+          } catch (error) {
+            console.error("Contract initialization failed:", error);
+          } finally {
+            // Mark attempt done to avoid repeated init attempts
+            setIsInitialized(true);
+          }
+        }
 
-      // Always fetch latest details on page load / address change
-      await Promise.all([
-        loadPlatformFees(),
-        loadDashboardStats(),
-      ]);
+        // Always fetch latest details on page load / address change
+        await Promise.all([
+          loadPlatformFees(),
+          loadDashboardStats(),
+        ]);
+      } finally {
+        fetchingRef.current = false;
+      }
     };
 
     void doFetch();
   }, [address, initializeContract, loadPlatformFees, loadDashboardStats, getIsInitialized, setIsInitialized]);
 
-  // Reset initialization flag when address changes
-  useEffect(() => {
-    return () => {
-      if (address) {
-        const key = `contract_initialized_${address}`;
-        localStorage.removeItem(key);
-      }
-    };
-  }, [address]);
 
   useEffect(() => {
     console.log("Modal check - address:", address, "userProfile:", userProfile, "isProfileLoading:", isProfileLoading);
