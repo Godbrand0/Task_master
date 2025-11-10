@@ -1,4 +1,4 @@
-# Taskify — On‑chain Bounty Board on Stellar
+# Taskify — community Bounty Board on Stellar
 
 Taskify is a community bounty board on Stellar (Soroban) built with scaffold stellar for seamless integration. It lets creators fund tasks, assign contributors, track progress, and release funds when work is completed, all on-stellar.
 
